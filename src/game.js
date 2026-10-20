@@ -2,7 +2,7 @@
 export const MAX_PLAYERS = 20;
 export const MIN_PLAYERS = 3;
 export const MAX_NAME = 16;
-export const DEFAULT_CONFIG = { mafia: 1, doctor: 1, detective: 1, jester: 0, spice: 'pg' };
+export const DEFAULT_CONFIG = { mafia: 1, doctor: 1, detective: 1, jester: 0, spice: 'pg', narrator: false };
 const COUNT_KEYS = ['mafia', 'doctor', 'detective', 'jester'];
 export const SPICES = ['pg', 'pg13'];
 const TEAM_ROLES = ['mafia', 'doctor', 'detective'];
@@ -53,7 +53,9 @@ export const createGame = (code) => ({
 });
 
 const byId = (s, id) => s.players.find((p) => p.id === id);
-const alive = (s) => s.players.filter((p) => p.alive);
+const alive = (s) => s.players.filter((p) => p.alive && p.role); // role-less narrator never counts
+// Narrator mode: the host runs the table and gets no role.
+export const inPlay = (s) => (s.config.narrator ? s.players.filter((p) => !p.isHost) : s.players);
 
 // strip control / bidi / zero-width chars, collapse whitespace
 export const cleanName = (raw) =>
@@ -102,6 +104,10 @@ export function setConfig(state, cfg) {
     if (!Number.isInteger(cfg[k]) || cfg[k] < 0 || cfg[k] > MAX_PLAYERS) return 'Bad config';
     next[k] = cfg[k];
   }
+  if (cfg.narrator !== undefined) {
+    if (typeof cfg.narrator !== 'boolean') return 'Bad config';
+    next.narrator = cfg.narrator;
+  }
   if (cfg.spice !== undefined) {
     if (!SPICES.includes(cfg.spice)) return 'Bad config';
     next.spice = cfg.spice;
@@ -122,7 +128,7 @@ export function configError(config, n) {
 }
 
 export function validateStart(state) {
-  const n = state.players.length;
+  const n = inPlay(state).length;
   if (n < MIN_PLAYERS) return `Need at least ${MIN_PLAYERS} players (have ${n})`;
   return configError(state.config, n);
 }
@@ -140,7 +146,7 @@ function resetRun(state) {
   state.usedQuestions = [];
   state.winner = null;
   state.winnerIds = [];
-  for (const p of state.players) { p.alive = true; p.role = null; }
+  for (const p of state.players) { p.alive = true; p.role = null; p.out = null; }
 }
 
 export function startGame(state, rng = Math.random) {
@@ -153,12 +159,13 @@ export function startGame(state, rng = Math.random) {
     ...Array(mafia).fill('mafia'), ...Array(doctor).fill('doctor'),
     ...Array(detective).fill('detective'), ...Array(jester).fill('jester'),
   ];
-  while (roles.length < state.players.length) roles.push('civilian');
+  const seats = inPlay(state);
+  while (roles.length < seats.length) roles.push('civilian');
   for (let i = roles.length - 1; i > 0; i--) { // Fisher-Yates
     const j = Math.floor(rng() * (i + 1));
     [roles[i], roles[j]] = [roles[j], roles[i]];
   }
-  state.players.forEach((p, i) => { p.role = roles[i]; });
+  seats.forEach((p, i) => { p.role = roles[i]; });
   state.round = 1;
   state.phase = 'roles';
   return null;
@@ -166,6 +173,12 @@ export function startGame(state, rng = Math.random) {
 
 export function playAgain(state) {
   if (state.phase !== 'over') return 'Game is not over';
+  return newGame(state);
+}
+
+// Back to the lobby from any phase (narrator mode: the game may have finished offline).
+export function newGame(state) {
+  if (state.phase === 'lobby') return 'Already in the lobby';
   state.players = state.players.filter((p) => p.connected || p.isHost);
   resetRun(state);
   state.phase = 'lobby';
@@ -278,8 +291,8 @@ function settle(state, rng, byRemoval = false) {
   if (byRemoval && winCheck(state)) { state.phase = 'over'; return; }
   if (state.phase === 'roles') {
     if (alive(state).every((p) => state.ready[p.id])) {
-      state.phase = 'night';
-      beginNight(state, rng);
+      if (state.config.narrator) state.phase = 'narrate'; // the narrator runs the rest offline
+      else { state.phase = 'night'; beginNight(state, rng); }
     }
   } else if (state.phase === 'night') {
     TEAM_ROLES.forEach((role) => resolveTeam(state, role, rng));
@@ -332,6 +345,20 @@ export function applyAction(state, playerId, action, rng = Math.random) {
       return hostOnly() || startGame(state, rng);
     case 'again':
       return hostOnly() || playAgain(state);
+    case 'newgame':
+      return hostOnly() || newGame(state);
+    case 'mark': { // narrator records what happened at the table: { id, how: 'killed' | 'voted' | 'alive' }
+      const e = hostOnly();
+      if (e) return e;
+      if (state.phase !== 'narrate') return 'Wrong phase';
+      const t = byId(state, target?.id);
+      if (!t || !t.role) return 'Invalid player';
+      if (!['killed', 'voted', 'alive'].includes(target.how)) return 'Invalid mark';
+      t.alive = target.how === 'alive';
+      t.out = t.alive ? null : target.how;
+      if (winCheck(state, target.how === 'voted' ? t.id : null)) state.phase = 'over';
+      return null;
+    }
     case 'kick': {
       const e = hostOnly();
       if (e) return e;
@@ -351,6 +378,7 @@ export function applyAction(state, playerId, action, rng = Math.random) {
     }
     case 'ready':
       if (state.phase !== 'roles') return 'Wrong phase';
+      if (!me.role) return 'The narrator does not play';
       if (!me.alive) return 'You are out';
       if (state.ready[me.id]) return 'Already ready';
       state.ready[me.id] = true;
@@ -456,6 +484,10 @@ export function viewFor(state, id) {
       }
       break;
     }
+    case 'narrate':
+      // only the narrator sees roles, and only once everyone has seen their own
+      if (me.isHost) v.roles = inPlay(state).map((p) => ({ id: p.id, role: p.role, out: p.out || null }));
+      break;
     case 'dawn': {
       const k = state.lastEvent?.killedId || null;
       v.event = { killedId: k, killedName: k ? name(k) : null };
@@ -484,7 +516,7 @@ export function viewFor(state, id) {
     case 'over':
       v.winner = state.winner;
       v.winnerIds = state.winnerIds;
-      v.roles = state.players.map((p) => ({ id: p.id, role: p.role }));
+      v.roles = inPlay(state).map((p) => ({ id: p.id, role: p.role }));
       v.funLog = state.funLog.map((e) => {
         const counts = {};
         Object.values(e.answers).forEach((t) => { counts[t] = (counts[t] || 0) + 1; });

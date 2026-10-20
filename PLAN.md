@@ -350,3 +350,17 @@ civilian question answers are locked, `funLog` absent from views before `over`, 
 tie, skip ≥ top), all three win conditions plus the jester night death, rejected
 illegal actions, and a civilian's `viewFor` leaking no roles. `npm test` must pass,
 and `npm run build` must succeed.
+
+## Narrator mode (`config.narrator`, host toggle "Runs the game: App / Narrator")
+
+- The host gets no role and doesn't count for setup validation or win checks.
+- After the role cards, the phase becomes `narrate` once every player has tapped
+  "I'm ready". There are no nights, votes or questions in the app; the host runs
+  them out loud.
+- Players see a rotating witty "look up, the Narrator is speaking" screen, with no
+  role on it (hold-to-peek still works). Their page stays connected.
+- Only the host's `narrate` view has `roles`. The host taps a player to mark them
+  `killed` / `voted` / back `alive`, and the normal win check runs after each mark
+  (a voted-out jester wins) → `over`.
+- Host `newgame` (any phase, after a confirm) returns everyone to the lobby without
+  re-entering the code.

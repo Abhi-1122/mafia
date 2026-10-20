@@ -14,6 +14,7 @@ function setup(roles, config) {
   return s;
 }
 const id = (i) => 'p' + i;
+const byName = (s, n) => s.players.find((p) => p.name === n);
 const act = (s, i, kind, target, rng) => applyAction(s, id(i), { kind, target }, rng);
 const num = (p) => +p.id.slice(1);
 const allReady = (s, rng) => s.players.forEach((p) => p.alive && act(s, num(p), 'ready', undefined, rng));
@@ -496,7 +497,7 @@ function toVote(roles, config) {
   assert.equal(s.phase, 'lobby');
   assert.equal(s.players.length, 4);
   assert.ok(s.players.every((p) => p.alive && p.role === null));
-  assert.deepEqual(s.config, { mafia: 1, doctor: 1, detective: 1, jester: 0, spice: 'pg' });
+  assert.deepEqual(s.config, { mafia: 1, doctor: 1, detective: 1, jester: 0, spice: 'pg', narrator: false });
   assert.deepEqual(s.funLog, []);
   assert.equal(s.saveStreak, null);
 }
@@ -672,6 +673,93 @@ function toVote(roles, config) {
   assert.equal(act(s, 3, 'ack'), null);
   assert.equal(act(s, 3, 'ack'), 'Wrong phase'); // night resolved
   assert.equal(s.phase, 'dawn');
+}
+
+// ---- narrator mode: host deals and narrates, gets no role, sees roles only after everyone is ready
+{
+  const s = createGame('NARR');
+  ['Host', 'A', 'B', 'C'].forEach((n, i) => addPlayer(s, { name: n, token: 'n' + i, isHost: !i }));
+  assert.equal(applyAction(s, 'p2', { kind: 'config', target: { narrator: true } }), 'Only the host can do that');
+  assert.equal(applyAction(s, 'p1', { kind: 'config', target: { narrator: 'yes' } }), 'Bad config');
+  assert.equal(applyAction(s, 'p1', { kind: 'config', target: { narrator: true, doctor: 0, detective: 0 } }), null);
+  assert.equal(validateStart(s), null); // 3 playing seats: 1 mafia vs 2
+  addPlayer(s, { name: 'D', token: 'n4' });
+  assert.equal(applyAction(s, 'p1', { kind: 'config', target: { mafia: 2 } }), null);
+  assert.match(validateStart(s), /Too many mafia for 4/); // host's seat doesn't count
+  removePlayer(s, 'p5');
+  assert.equal(applyAction(s, 'p1', { kind: 'config', target: { mafia: 1, jester: 1 } }), null);
+  assert.equal(applyAction(s, 'p1', { kind: 'start' }, () => 0.1), null);
+  assert.equal(byName(s, 'Host').role, null);
+  assert.deepEqual(s.players.filter((p) => !p.isHost).map((p) => p.role).sort(), ['civilian', 'jester', 'mafia']);
+  assert.equal(applyAction(s, 'p1', { kind: 'ready' }), 'The narrator does not play');
+  ['p2', 'p3'].forEach((id) => applyAction(s, id, { kind: 'ready' }));
+  assert.equal(s.phase, 'roles');
+  assert.equal(viewFor(s, 'p1').roles, undefined); // no roles for the narrator yet
+  applyAction(s, 'p4', { kind: 'ready' });
+  assert.equal(s.phase, 'narrate');
+  assert.equal(viewFor(s, 'p1').roles.length, 3);
+  for (const id of ['p2', 'p3', 'p4']) {
+    const v = JSON.stringify(viewFor(s, id));
+    assert.ok(!('roles' in viewFor(s, id)));
+    assert.ok(!JSON.stringify(viewFor(s, id).players).includes('role'), v); // no one else's role
+  }
+  const mafia = s.players.find((p) => p.role === 'mafia');
+  const jester = s.players.find((p) => p.role === 'jester');
+  const civ = s.players.find((p) => p.role === 'civilian');
+  assert.equal(applyAction(s, civ.id, { kind: 'mark', target: { id: mafia.id, how: 'voted' } }), 'Only the host can do that');
+  assert.equal(applyAction(s, 'p1', { kind: 'mark', target: { id: 'p1', how: 'killed' } }), 'Invalid player');
+  assert.equal(applyAction(s, 'p1', { kind: 'mark', target: { id: civ.id, how: 'shot' } }), 'Invalid mark');
+  // killed jester: no jester win; undo; then voted-out jester wins
+  assert.equal(applyAction(s, 'p1', { kind: 'mark', target: { id: jester.id, how: 'killed' } }), null);
+  assert.equal(s.phase, 'over'); // 1 mafia vs 1 civilian: parity
+  assert.equal(s.winner, 'mafia');
+  assert.equal(viewFor(s, 'p1').roles.length, 3); // narrator excluded from the lineup
+  // new game from any phase goes back to the lobby with the same people
+  assert.equal(applyAction(s, 'p2', { kind: 'newgame' }), 'Only the host can do that');
+  assert.equal(applyAction(s, 'p1', { kind: 'newgame' }), null);
+  assert.equal(s.phase, 'lobby');
+  assert.equal(s.players.length, 4);
+  assert.ok(s.players.every((p) => p.alive && !p.role && !p.out));
+  assert.equal(applyAction(s, 'p1', { kind: 'newgame' }), 'Already in the lobby');
+  // second game: jester voted out wins; undo works
+  applyAction(s, 'p1', { kind: 'start' }, () => 0.7);
+  ['p2', 'p3', 'p4'].forEach((id) => applyAction(s, id, { kind: 'ready' }));
+  const j = s.players.find((p) => p.role === 'jester');
+  const c = s.players.find((p) => p.role === 'civilian');
+  applyAction(s, 'p1', { kind: 'mark', target: { id: c.id, how: 'voted' } });
+  assert.equal(s.phase, 'over'); // parity again
+  applyAction(s, 'p1', { kind: 'newgame' });
+  applyAction(s, 'p1', { kind: 'start' }, () => 0.7);
+  ['p2', 'p3', 'p4'].forEach((id) => applyAction(s, id, { kind: 'ready' }));
+  const j2 = s.players.find((p) => p.role === 'jester');
+  const c2 = s.players.find((p) => p.role === 'civilian');
+  applyAction(s, 'p1', { kind: 'mark', target: { id: c2.id, how: 'killed' } });
+  assert.equal(s.phase, 'over');
+  applyAction(s, 'p1', { kind: 'newgame' });
+  applyAction(s, 'p1', { kind: 'start' }, () => 0.7);
+  ['p2', 'p3', 'p4'].forEach((id) => applyAction(s, id, { kind: 'ready' }));
+  const j3 = s.players.find((p) => p.role === 'jester');
+  assert.equal(applyAction(s, 'p1', { kind: 'mark', target: { id: j3.id, how: 'voted' } }), null);
+  assert.equal(s.winner, 'jester');
+  assert.deepEqual(s.winnerIds, [j3.id]);
+}
+// narrator undo: marking someone back alive
+{
+  const s = createGame('UNDO');
+  ['Host', 'A', 'B', 'C', 'D', 'E'].forEach((n, i) => addPlayer(s, { name: n, token: 'u' + i, isHost: !i }));
+  applyAction(s, 'p1', { kind: 'config', target: { narrator: true, doctor: 0, detective: 0 } });
+  applyAction(s, 'p1', { kind: 'start' });
+  s.players.filter((p) => !p.isHost).forEach((p) => applyAction(s, p.id, { kind: 'ready' }));
+  const c = s.players.find((p) => p.role === 'civilian');
+  applyAction(s, 'p1', { kind: 'mark', target: { id: c.id, how: 'killed' } });
+  assert.equal(viewFor(s, 'p1').roles.find((r) => r.id === c.id).out, 'killed');
+  assert.equal(viewFor(s, c.id).you.alive, false);
+  applyAction(s, 'p1', { kind: 'mark', target: { id: c.id, how: 'alive' } });
+  assert.equal(c.alive, true);
+  assert.equal(s.phase, 'narrate');
+  const m = s.players.find((p) => p.role === 'mafia');
+  applyAction(s, 'p1', { kind: 'mark', target: { id: m.id, how: 'voted' } });
+  assert.equal(s.winner, 'town');
 }
 
 console.log('game.test.js: all checks passed');

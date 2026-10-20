@@ -312,8 +312,8 @@ function screenKey() {
   return [v.phase, v.round, v.you.alive ? 1 : 0, locked(v) ? 1 : 0].join('|');
 }
 
-const BUILDERS = { lobby, roles, night, dawn, vote, verdict, over };
-const THEME = { lobby: 'lobby', roles: 'lobby', night: 'night', dawn: 'dawn', vote: 'day', verdict: 'day', over: 'over' };
+const BUILDERS = { lobby, roles, night, dawn, vote, verdict, over, narrate };
+const THEME = { lobby: 'lobby', roles: 'lobby', night: 'night', dawn: 'dawn', vote: 'day', verdict: 'day', over: 'over', narrate: 'night' };
 
 const hud = (() => {
   const code = h('span', { class: 'hud-code' });
@@ -338,7 +338,7 @@ const hud = (() => {
     update() {
       const inGame = (S.mode === 'game' && S.view) || S.mode === 'connecting';
       el.hidden = !inGame;
-      peek.hidden = !['night', 'dawn', 'vote', 'verdict'].includes(S.view?.phase) || S.mode !== 'game';
+      peek.hidden = !['night', 'dawn', 'vote', 'verdict', 'narrate'].includes(S.view?.phase) || S.mode !== 'game' || !S.view.you.role;
       if (peek.hidden) peekBox.hidden = true;
       setText(code, S.view?.code || S.tmp?.code || '');
       banner.hidden = !S.lostHost;
@@ -500,8 +500,14 @@ function lobby(v) {
   }
   const spiceBtns = [['pg', 'Mild'], ['pg13', 'Spicy']].map(([val, label]) =>
     h('button', { class: 'seg', type: 'button', disabled: !isHost, onclick: () => doAct('config', { spice: val }) }, label));
-  cfgEl.append(h('div', { class: 'cfg-row' }, h('span', { class: 'cfg-ico' }, '\u{1F336}\uFE0F'), h('span', { class: 'cfg-name' }, 'Questions'),
-    h('span', { class: 'segs' }, spiceBtns)));
+  const spiceRow = h('div', { class: 'cfg-row' }, h('span', { class: 'cfg-ico' }, '\u{1F336}\uFE0F'), h('span', { class: 'cfg-name' }, 'Questions'),
+    h('span', { class: 'segs' }, spiceBtns));
+  const modeBtns = [[false, 'App'], [true, 'Narrator']].map(([val, label]) =>
+    h('button', { class: 'seg', type: 'button', disabled: !isHost, onclick: () => doAct('config', { narrator: val }) }, label));
+  const modeNote = h('p', { class: 'muted mode-note' });
+  cfgEl.prepend(h('div', { class: 'cfg-row' }, h('span', { class: 'cfg-ico' }, '\u{1F3AD}'), h('span', { class: 'cfg-name' }, 'Runs the game'),
+    h('span', { class: 'segs' }, modeBtns)), modeNote);
+  cfgEl.append(spiceRow);
   const el = h('section', { class: 'lobby' },
     h('div', { class: 'codeblock' }, h('span', { class: 'lbl' }, 'Room code'), h('div', { class: 'bigcode' }, [...v.code].map((c, i) => h('span', { class: 'tile', style: { '--i': i } }, c))),
       h('button', { class: 'btn', type: 'button', onclick: () => share(S.view.code) }, 'Share invite link')),
@@ -522,7 +528,11 @@ function lobby(v) {
           row.querySelector('.you').hidden = p.id !== v.you.id;
           row.querySelector('.rm').hidden = !(v.you.isHost && p.id !== v.you.id);
         });
-      const n = v.players.length;
+      const narr = !!v.config.narrator;
+      const n = v.players.length - (narr ? 1 : 0); // the narrator gets no role
+      modeBtns.forEach((b, i) => b.classList.toggle('on', narr === [false, true][i]));
+      setText(modeNote, narr ? 'The host narrates out loud and does not play. The app only deals roles.' : 'The app runs nights and votes. Everyone plays.');
+      spiceRow.hidden = narr;
       for (const [k] of defs) {
         const c = v.config;
         const r = rows[k];
@@ -539,6 +549,7 @@ function lobby(v) {
 }
 
 function roles(v) {
+  if (!v.you.role) return narratorWait();
   const r = ROLE[v.you.role];
   const mates = h('div', { class: 'mates' });
   // The role hides itself again so a phone left on the table never shows it.
@@ -569,6 +580,86 @@ function roles(v) {
         mates.replaceChildren(h('span', { class: 'mates-l' }, v.team.length ? (v.you.role === 'mafia' ? 'Your crew' : 'Your team') : 'You work alone'), ...v.team.map((t) => h('span', { class: 'chip' }, t.name)));
       } else mates.hidden = true;
       ros.update(v);
+    },
+  };
+}
+
+function narratorWait() {
+  const cnt = counter('Seen their role');
+  const ros = roster('Players', (v) => v.readyIds);
+  return {
+    el: h('section', { class: 'roles' }, h('div', { class: 'ttl' }, h('div', { class: 'big-icon' }, '\u{1F3AD}'), h('h2', {}, 'You are the narrator'),
+      h('p', { class: 'muted' }, 'Everyone is peeking at their role. You see all of them once they are done.')), cnt.el, ros.el),
+    update(v) {
+      cnt.set(v.readyIds.length, v.players.filter((p) => p.alive && !p.isHost).length);
+      ros.update(v);
+    },
+  };
+}
+
+// Narrator mode, after everyone has seen their role. Players just get told to look up.
+const LISTEN = [
+  ['This app has left the chat.', 'The Narrator runs things now. Put the phone down and look up.'],
+  ['Phones down. Eyes on the Narrator.', 'The Narrator is your god now. Worship accordingly.'],
+  ['Shh. The Narrator is speaking.', 'Your role lives in your head now, not on this screen.'],
+  ['Nothing to see here.', 'Seriously. Pocket it. The Narrator has the floor.'],
+  ['The app has done its job.', 'From here on, trust the voice of the Narrator. And nobody else.'],
+];
+
+function narrate(v) {
+  if (v.you.isHost) return ledger(v);
+  const [head, sub] = LISTEN[Math.floor(Math.random() * LISTEN.length)];
+  const out = !v.you.alive;
+  const ros = roster('At the table');
+  return {
+    el: h('section', { class: 'narrate' }, h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, out ? '\u{1F47B}' : '\u{1F399}\uFE0F'),
+      h('h2', {}, out ? 'You are out' : head), h('p', { class: 'muted' }, out ? 'Stay quiet. Ghosts do not talk.' : sub)),
+      h('p', { class: 'fine center-t' }, 'Keep this page open: when the Narrator starts a new game you join automatically, no code needed.'), ros.el),
+    update(v) { ros.update(v); },
+  };
+}
+
+// The narrator's private ledger: every role, tap a player to mark them out (or back in).
+function ledger() {
+  let open = null;
+  const list = h('div', { class: 'plist ledger' });
+  const score = h('p', { class: 'muted center-t' });
+  const newGame = h('button', { class: 'ghost sm', type: 'button', onclick: () => confirm('Start a new game? Everyone goes back to the lobby.') && doAct('newgame') }, 'New game');
+  const mark = (id, how) => { open = null; doAct('mark', { id, how }); };
+  const OUT = { killed: '\u{2620}\uFE0F Killed', voted: '\u{2696}\uFE0F Voted out' };
+  return {
+    el: h('section', { class: 'narrate' }, h('div', { class: 'card-head' }, h('h2', {}, 'Narrator'), newGame),
+      h('p', { class: 'muted' }, 'Tap a player to mark what happened at the table.'), score, h('div', { class: 'card' }, list)),
+    update(v) {
+      const role = Object.fromEntries(v.roles.map((r) => [r.id, r]));
+      const seats = v.players.filter((p) => role[p.id]);
+      const left = (f) => seats.filter((p) => p.alive && f(role[p.id].role)).length;
+      setText(score, `Mafia left: ${left((r) => r === 'mafia')}  ·  Others left: ${left((r) => r !== 'mafia')}`);
+      sync(list, seats, (p) => p.id,
+        (p) => {
+          const row = h('div', { class: 'lrow' },
+            h('button', { class: 'prow', type: 'button', onclick: () => { open = open === p.id ? null : p.id; cur.update(S.view); } },
+              avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'badge off' }, 'offline'), h('span', { class: 'status' }), h('span', { class: 'rtag' })),
+            h('div', { class: 'acts' },
+              h('button', { class: 'btn sm a-kill', type: 'button', onclick: () => mark(p.id, 'killed') }, OUT.killed),
+              h('button', { class: 'btn sm a-vote', type: 'button', onclick: () => mark(p.id, 'voted') }, OUT.voted),
+              h('button', { class: 'btn sm a-back', type: 'button', onclick: () => mark(p.id, 'alive') }, '\u{21A9}\uFE0F Bring back')));
+          return row;
+        },
+        (row, p) => {
+          const r = role[p.id];
+          setText(row.querySelector('.pname'), p.name);
+          row.querySelector('.prow').classList.toggle('dead', !p.alive);
+          row.querySelector('.badge').hidden = p.connected;
+          setText(row.querySelector('.status'), p.alive ? '' : OUT[r.out] || 'Out');
+          const t = row.querySelector('.rtag');
+          setText(t, ROLE[r.role].icon + ' ' + ROLE[r.role].label);
+          t.className = 'rtag r-' + r.role;
+          row.querySelector('.acts').hidden = open !== p.id;
+          row.querySelector('.a-kill').hidden = !p.alive;
+          row.querySelector('.a-vote').hidden = !p.alive;
+          row.querySelector('.a-back').hidden = p.alive;
+        });
     },
   };
 }
@@ -703,7 +794,7 @@ function verdict(v) {
 
 function over(v) {
   const w = WINNER[v.winner];
-  const mine = v.winner === 'jester' ? v.winnerIds.includes(v.you.id)
+  const mine = !v.you.role ? null : v.winner === 'jester' ? v.winnerIds.includes(v.you.id)
     : v.winner === 'mafia' ? v.you.role === 'mafia' : v.you.role !== 'mafia' && v.you.role !== 'jester';
   const roleOf = Object.fromEntries(v.roles.map((r) => [r.id, r.role]));
   const confetti = Array.from({ length: 36 }, (_, i) => h('i', { style: { '--x': Math.random() * 100 + '%', '--d': Math.random() * 3 + 's', '--t': 3 + Math.random() * 3 + 's', '--r': Math.random() * 720 - 360 + 'deg', '--k': i % 2 } }));
@@ -713,7 +804,7 @@ function over(v) {
     el: h('section', { class: 'over c-' + w.color }, h('div', { class: 'confetti', 'aria-hidden': 'true' }, confetti),
       h('article', { class: 'paper news front' },
         h('div', { class: 'masthead' }, h('span', { class: 'mast-rule' }), h('b', {}, 'The Daily Whisper'), h('span', { class: 'mast-rule' })),
-        h('div', { class: 'dateline' }, h('span', {}, 'Final Edition'), h('span', {}, mine ? 'Victory' : 'Defeat'), h('span', {}, 'Price: one secret')),
+        h('div', { class: 'dateline' }, h('span', {}, 'Final Edition'), h('span', {}, mine === null ? 'Narrated' : mine ? 'Victory' : 'Defeat'), h('span', {}, 'Price: one secret')),
         h('p', { class: 'extra' }, 'Extra! Extra!'),
         h('h1', { class: 'headline win-title' }, w.head, h('span', { class: 'sr' }, ' ' + w.title)),
         h('p', { class: 'deck' }, w.sub), h('div', { class: 'cols', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'))),
@@ -725,7 +816,7 @@ function over(v) {
         h('div', { class: 'qpicks' }, e.picks.map((x, i) => h('span', { class: 'qpick', style: { '--j': i } }, x.from, ' → ', x.to))))),
       v.you.isHost ? again : h('p', { class: 'muted center-t' }, 'Waiting for the host to play again...')),
     update(v) {
-      sync(plist, v.players, (p) => p.id,
+      sync(plist, v.players.filter((p) => roleOf[p.id]), (p) => p.id,
         (p) => h('div', { class: 'prow' }, h('span', { class: 'plate' }), avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'badge off' }, 'offline'), h('span', { class: 'rtag' })),
         (row, p) => {
           const r = roleOf[p.id];
