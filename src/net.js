@@ -1,6 +1,6 @@
 // Trystero wrapper: host and client message plumbing.
 import { joinRoom } from 'trystero';
-import { addPlayer, applyAction, removePlayer, viewFor } from './game.js';
+import { addPlayer, applyAction, removePlayer, rejoin, viewFor } from './game.js';
 
 // ponytail: add a TURN server if players on mobile data can't connect, e.g.
 // { urls: ['turn:host:3478'], username: 'u', credential: 'p' }
@@ -62,6 +62,7 @@ export function hostRoom(state, onChange) {
       for (const [k, v] of peers) if (v === known.id) peers.delete(k);
       peers.set(peerId, known.id);
       known.connected = true;
+      rejoin(state, known.id);
       return changed();
     }
     if (state.phase !== 'lobby') return reply('Game already in progress');

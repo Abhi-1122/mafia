@@ -57,6 +57,9 @@ export const createGame = (code) => ({
 
 const byId = (s, id) => s.players.find((p) => p.id === id);
 const alive = (s) => s.players.filter((p) => p.alive && p.role); // role-less narrator never counts
+// Who the game waits on: alive and not kicked. A kicked player is still in the game (can be
+// voted out or killed, counts for wins), the table just stops waiting for them.
+const active = (s) => alive(s).filter((p) => !p.kicked);
 // Narrator mode: the host runs the table and gets no role.
 export const inPlay = (s) => (s.config.narrator ? s.players.filter((p) => !p.isHost) : s.players);
 
@@ -85,8 +88,8 @@ export function addPlayer(state, { name, token, isHost = false }) {
   return { player };
 }
 
-// Lobby / game over: the seat just goes. Mid-game: a silent death (no event, no role reveal);
-// they can rejoin with the code and watch as a ghost.
+// Lobby / game over: the seat just goes. Mid-game: the player stays in the game, but nobody
+// waits on them any more (see active); rejoining clears it.
 export function removePlayer(state, id) {
   const p = byId(state, id);
   if (!p) return;
@@ -95,11 +98,14 @@ export function removePlayer(state, id) {
     return;
   }
   p.connected = false;
-  if (!p.alive) return;
-  p.alive = false;
-  if (state.phase === 'verdict') winCheck(state); // the winner is shown after the verdict
-  else if (state.phase === 'dawn' || state.phase === 'narrate') { if (winCheck(state)) state.phase = 'over'; }
-  else settle(state, Math.random, true);
+  p.kicked = true;
+  settle(state, Math.random);
+}
+
+// A kicked player coming back plays on as before (the game waits on them again).
+export function rejoin(state, id) {
+  const p = byId(state, id);
+  if (p) p.kicked = false;
 }
 
 export function setConfig(state, cfg) {
@@ -252,7 +258,7 @@ function plurality(state, ids, rng) {
 // A team's choice exists once all of its living members have locked.
 function resolveTeam(state, role, rng) {
   const n = state.night;
-  const members = alive(state).filter((p) => p.role === role);
+  const members = active(state).filter((p) => p.role === role);
   if (!members.length || n.choice[role] || !members.every((p) => n.locked[p.id])) return;
   n.choice[role] = plurality(state, members.map((p) => n.selections[p.id]), rng);
   if (role === 'detective') {
@@ -293,18 +299,17 @@ function tallyVotes(state) {
 }
 
 // Move a phase forward if everything it was waiting on is done.
-function settle(state, rng, byRemoval = false) {
+function settle(state, rng) {
   if (!['roles', 'night', 'vote'].includes(state.phase)) return;
-  if (byRemoval && winCheck(state)) { state.phase = 'over'; return; }
   if (state.phase === 'roles') {
-    if (alive(state).every((p) => state.ready[p.id])) {
+    if (active(state).every((p) => state.ready[p.id])) {
       if (state.config.narrator) state.phase = 'narrate'; // the narrator runs the rest offline
       else { state.phase = 'night'; beginNight(state, rng); }
     }
   } else if (state.phase === 'night') {
     TEAM_ROLES.forEach((role) => resolveTeam(state, role, rng));
-    if (alive(state).every((p) => nightDone(state.night, p))) resolveNight(state);
-  } else if (alive(state).every((p) => state.votes[p.id])) {
+    if (active(state).every((p) => nightDone(state.night, p))) resolveNight(state);
+  } else if (active(state).every((p) => state.votes[p.id])) {
     tallyVotes(state);
   }
 }
@@ -459,7 +464,8 @@ export function viewFor(state, id) {
     case 'night': {
       const n = state.night;
       const a = alive(state);
-      v.count = { done: a.filter((p) => nightDone(n, p)).length, total: a.length };
+      const w = active(state);
+      v.count = { done: w.filter((p) => nightDone(n, p)).length, total: w.length };
       v.locked = false;
       if (me.role === 'detective') v.log = state.detectiveLog.map((e) => ({ ...e, name: name(e.targetId) }));
       if (me.role) {
@@ -494,7 +500,8 @@ export function viewFor(state, id) {
     case 'vote': {
       const a = alive(state);
       v.votedIds = Object.keys(state.votes);
-      v.count = { done: a.filter((p) => state.votes[p.id]).length, total: a.length };
+      const w = active(state);
+      v.count = { done: w.filter((p) => state.votes[p.id]).length, total: w.length };
       v.locked = !!state.votes[me.id];
       v.myVote = state.votes[me.id] || null;
       v.targets = me.alive ? a.filter((p) => p.id !== me.id).map((p) => p.id) : [];

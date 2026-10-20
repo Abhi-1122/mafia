@@ -348,7 +348,7 @@ const hud = (() => {
   drawer.append(h('div', { class: 'drawer-scrim', onclick: () => openMenu(false) }),
     h('aside', { class: 'drawer-panel' },
       h('div', { class: 'card-head' }, h('h3', {}, 'Players'), h('button', { class: 'ghost sm', type: 'button', onclick: () => openMenu(false) }, 'Close')),
-      h('p', { class: 'muted' }, 'Kick anyone who went AFK. Mid-game they quietly drop out and nothing is revealed. They can rejoin with the code and watch as a ghost.'),
+      h('p', { class: 'muted' }, 'Kick anyone who went AFK. Mid-game they stay in the game (still votable, shown as offline), but nobody waits on them. They can rejoin with the code and carry on.'),
       menuList));
   const menu = h('button', { class: 'ghost sm menubtn', type: 'button', 'aria-label': 'Players menu', onclick: () => openMenu(true) }, '\u2630');
   el.append(h('div', { class: 'hud-row' }, menu, h('span', { class: 'hud-label' }, 'Room'), code, peek,
