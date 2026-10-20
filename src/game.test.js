@@ -609,12 +609,11 @@ function toVote(roles, config) {
   assert.equal(s.players.length, 1);
 }
 {
-  // kick a connected player mid-night: silent death, marked so they can't rejoin
+  // kick a connected player mid-night: silent death
   const s = setup(['mafia', 'doctor', 'civilian', 'civilian', 'civilian']);
   allReady(s);
   assert.equal(act(s, 1, 'kick', 'p4'), null);
   assert.equal(s.players[3].alive, false);
-  assert.equal(s.players[3].kicked, true);
   assert.equal(s.lastEvent, null); // no announcement
   assert.equal(act(s, 1, 'kick', 'p4'), null); // already out: harmless
 }

@@ -85,8 +85,8 @@ export function addPlayer(state, { name, token, isHost = false }) {
   return { player };
 }
 
-// Lobby / game over: the seat just goes. Mid-game: a silent death (no event, no role reveal),
-// and the player can't rejoin this game.
+// Lobby / game over: the seat just goes. Mid-game: a silent death (no event, no role reveal);
+// they can rejoin with the code and watch as a ghost.
 export function removePlayer(state, id) {
   const p = byId(state, id);
   if (!p) return;
@@ -94,7 +94,6 @@ export function removePlayer(state, id) {
     state.players = state.players.filter((q) => q.id !== id);
     return;
   }
-  p.kicked = true;
   p.connected = false;
   if (!p.alive) return;
   p.alive = false;
