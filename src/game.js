@@ -99,7 +99,8 @@ export function removePlayer(state, id) {
   }
   p.connected = false;
   p.kicked = true;
-  settle(state, Math.random);
+  if (winCheck(state)) state.phase = 'over'; // kicking the last mafia hands the town the win
+  else settle(state, Math.random);
 }
 
 // A kicked player coming back plays on as before (the game waits on them again).
@@ -210,7 +211,8 @@ function winCheck(state, votedOutId = null) {
   }
   const a = alive(state);
   const m = a.filter((p) => p.role === 'mafia').length;
-  if (m === 0) { state.winner = 'town'; return true; }
+  // a kicked mafia can't kill anyone, so no mafia left in play means the town wins
+  if (!a.some((p) => p.role === 'mafia' && !p.kicked)) { state.winner = 'town'; return true; }
   if (m >= a.length - m) { state.winner = 'mafia'; return true; }
   return false;
 }

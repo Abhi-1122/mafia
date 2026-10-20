@@ -587,15 +587,33 @@ function toVote(roles, config) {
   assert.equal(s.lastEvent.eliminatedId, 'p5');
 }
 {
-  // a kick never decides the game by itself (the kicked mafia is still alive)
+  // kicking the last mafia ends the game: town wins
   const s = setup(['mafia', 'civilian', 'civilian', 'civilian']);
   allReady(s);
   s.players[0].isHost = false; s.players[1].isHost = true;
   assert.equal(act(s, 2, 'kick', 'p1'), null);
+  assert.equal(s.winner, 'town');
+  assert.equal(s.phase, 'over');
+}
+{
+  // kicking one of two mafia: the game goes on; if the other is voted out, the town wins
+  const s = toVote(['mafia', 'mafia', 'civilian', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 2, doctor: 0, detective: 0 });
+  s.players[0].isHost = false; s.players[2].isHost = true;
+  assert.equal(act(s, 3, 'kick', 'p1'), null);
+  assert.equal(s.phase, 'vote');
   assert.equal(s.winner, null);
-  nightAll(s, {}, undefined, ['p1']); // no active mafia: nobody dies
-  assert.equal(s.phase, 'dawn');
-  assert.equal(s.lastEvent.killedId, null);
+  assert.equal(s.players[2].alive, false); // p3 died in the night
+  ['p2', 'p4', 'p5', 'p6', 'p7'].forEach((p) => assert.equal(act(s, +p.slice(1), 'vote', p === 'p2' ? 'p4' : 'p2'), null));
+  assert.equal(s.lastEvent.eliminatedId, 'p2');
+  assert.equal(s.winner, 'town');
+}
+{
+  // kicking a civilian never decides the game
+  const s = setup(['mafia', 'civilian', 'civilian', 'civilian']);
+  allReady(s);
+  assert.equal(act(s, 1, 'kick', 'p2'), null);
+  assert.equal(s.winner, null);
+  assert.equal(s.phase, 'night');
 }
 {
   // kick in lobby
