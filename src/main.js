@@ -286,7 +286,6 @@ function joinRoomAs(code, rawName) {
       S.mode = 'game';
       S.lostHost = false;
       S.view = v;
-      store.set('mafia-at', String(Date.now()));
       render();
     },
     onErr(msg) {
@@ -770,9 +769,6 @@ function boot() {
     if (session.host && saved && saved.code === room && saved.players?.some((p) => p.isHost && p.token === session.token)) {
       return askResume(room, () => resumeHost(saved, session));
     }
-    // Players hold no game state, only a seat: rejoin silently if the game was active in the last 30 min.
-    if (!session.host && Date.now() - (Number(store.get('mafia-at')) || 0) < 30 * 60000) return joinRoomAs(room, session.name);
-    if (!session.host) store.del('mafia-session');
   }
   render();
 }
