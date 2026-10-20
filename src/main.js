@@ -1,6 +1,10 @@
 import './style.css';
+import { inject } from '@vercel/analytics';
 import { createGame, addPlayer, viewFor, advance, setNextQuestion, configError, cleanName, MAX_NAME, MAX_PLAYERS } from './game.js';
 import { hostRoom, joinClient, genCode, normCode, validCode } from './net.js';
+
+// Initialize Vercel Analytics
+inject();
 
 const DAWN_MS = 6000;
 const VERDICT_MS = 7000;
