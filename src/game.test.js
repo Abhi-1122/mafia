@@ -779,6 +779,8 @@ function toVote(roles, config) {
   assert.deepEqual(dead.targets, []);
   assert.equal(act(s, 4, 'vote', 'p1'), 'You are dead');
   assert.equal(viewFor(s, 'p5').liveVotes, undefined); // the living only see who has voted
+  assert.equal(dead.roles.find((r) => r.id === 'p1').role, 'mafia'); // the dead see every role
+  assert.equal(viewFor(s, 'p5').roles, undefined);
   ['p2', 'p3', 'p5', 'p7'].forEach((id) => act(s, +id.slice(1), 'vote', 'skip'));
   advance(s); // night 2
   assert.equal(s.phase, 'night');

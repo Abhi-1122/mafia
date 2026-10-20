@@ -1,7 +1,7 @@
 import './style.css';
 import { inject } from '@vercel/analytics';
 import { createGame, addPlayer, viewFor, advance, setNextQuestion, configError, cleanName, MAX_NAME, MAX_PLAYERS } from './game.js';
-import { hostRoom, joinClient, genCode, normCode, validCode } from './net.js';
+import { hostRoom, joinClient, genCode, normCode, validCode, BUILD } from './net.js';
 
 // Initialize Vercel Analytics
 inject();
@@ -290,6 +290,7 @@ function joinRoomAs(code, rawName) {
       S.mode = 'game';
       S.lostHost = false;
       S.view = v;
+      S.stale = v.build !== BUILD; // host and this phone run different deploys: rules may disagree
       render();
     },
     onErr(msg) {
@@ -318,6 +319,7 @@ const THEME = { lobby: 'lobby', roles: 'lobby', night: 'night', dawn: 'dawn', vo
 const hud = (() => {
   const code = h('span', { class: 'hud-code' });
   const banner = h('div', { class: 'banner', hidden: true }, 'Connection to host lost. Reconnecting...');
+  const stale = h('div', { class: 'banner', hidden: true }, 'This phone and the host are on different versions. Everyone: close the tab and reopen the site, host first.');
   const el = document.getElementById('hud');
   // Hold-to-peek: the role is never left on screen, it shows only while pressed.
   const peekBox = h('div', { class: 'peek', hidden: true });
@@ -332,7 +334,7 @@ const hud = (() => {
     onpointerleave: show(false), onpointercancel: show(false), oncontextmenu: (e) => e.preventDefault(),
   }, 'Hold: role');
   el.append(h('div', { class: 'hud-row' }, h('span', { class: 'hud-label' }, 'Room'), code, peek,
-    h('button', { class: 'ghost sm', type: 'button', onclick: leaveRoom }, 'Leave')), banner);
+    h('button', { class: 'ghost sm', type: 'button', onclick: leaveRoom }, 'Leave')), banner, stale);
   document.body.append(peekBox);
   return {
     update() {
@@ -342,6 +344,7 @@ const hud = (() => {
       if (peek.hidden) peekBox.hidden = true;
       setText(code, S.view?.code || S.tmp?.code || '');
       banner.hidden = !S.lostHost;
+      stale.hidden = !(S.stale && S.client);
     },
   };
 })();
@@ -781,9 +784,26 @@ function vote(v) {
     parts.push(h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, '\u{1F47B}'), h('h2', {}, 'You are out'),
       h('p', { class: 'muted' }, 'No vote for you, but you get the best seat: every vote, live. Keep a straight face.')),
     h('div', { class: 'card' }, h('h3', {}, 'Live votes'), empty, feed));
+    // the dead see every role (keep a straight face)
+    const who = h('div', { class: 'plist' });
+    parts.push(h('div', { class: 'card lineup' }, h('h3', {}, 'Who is who'), who));
     ups.push((v) => {
-      empty.hidden = v.liveVotes.length > 0;
-      sync(feed, v.liveVotes, (x) => x.from,
+      const roleOf = Object.fromEntries((v.roles || []).map((r) => [r.id, r.role]));
+      sync(who, v.players.filter((p) => roleOf[p.id]), (p) => p.id,
+        (p) => h('div', { class: 'prow' }, avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'rtag' })),
+        (row, p) => {
+          const r = roleOf[p.id];
+          setText(row.querySelector('.pname'), p.name + (p.id === v.you.id ? ' (you)' : '') + (p.alive ? '' : ' †'));
+          row.classList.toggle('dead', !p.alive);
+          const t = row.querySelector('.rtag');
+          setText(t, ROLE[r].icon + ' ' + ROLE[r].label);
+          t.className = 'rtag r-' + r;
+        });
+    });
+    ups.push((v) => {
+      const live = v.liveVotes || []; // an out-of-date host sends none
+      empty.hidden = live.length > 0;
+      sync(feed, live, (x) => x.from,
         () => h('div', { class: 'prow vrow' }, h('span', { class: 'pname' }), h('span', { class: 'arrow' }, '→'), h('span', { class: 'vto' })),
         (row, x) => {
           setText(row.querySelector('.pname'), x.from);

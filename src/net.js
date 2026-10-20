@@ -30,6 +30,8 @@ function open(code) {
   };
 }
 const quiet = (p) => p && p.catch && p.catch(() => {});
+// The hashed bundle URL changes with every deploy, so it doubles as a build id.
+export const BUILD = new URL(import.meta.url).pathname;
 
 /* ------------------------------ host ------------------------------ */
 
@@ -43,7 +45,7 @@ export function hostRoom(state, onChange) {
   const sendView = (pid) => {
     const peer = peerOf(pid);
     const p = state.players.find((q) => q.id === pid);
-    if (peer && p && !p.isHost) quiet(view.send(viewFor(state, pid), { target: peer }));
+    if (peer && p && !p.isHost) quiet(view.send({ ...viewFor(state, pid), build: BUILD }, { target: peer }));
   };
   const changed = () => {
     state.players.forEach((p) => sendView(p.id));

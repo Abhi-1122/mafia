@@ -504,7 +504,10 @@ export function viewFor(state, id) {
       v.myVote = state.votes[me.id] || null;
       v.targets = me.alive ? a.filter((p) => p.id !== me.id).map((p) => p.id) : [];
       // the dead can't vote, but they get to watch who is voting for whom, live
-      if (!me.alive) v.liveVotes = Object.entries(state.votes).map(([from, t]) => ({ from: name(from), to: t === 'skip' ? null : name(t) }));
+      if (!me.alive) {
+        v.liveVotes = Object.entries(state.votes).map(([from, t]) => ({ from: name(from), to: t === 'skip' ? null : name(t) }));
+        v.roles = inPlay(state).map((p) => ({ id: p.id, role: p.role })); // the dead know everything now
+      }
       break;
     }
     case 'verdict': {
