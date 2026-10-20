@@ -356,7 +356,17 @@ section.center { gap: 14px; }
 .target.red .pip { color: var(--blood); }
 .target .pip.tl { top: 6px; left: 9px; }
 .target .pip.br { bottom: 6px; right: 9px; transform: rotate(180deg); }
-.target .tname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-head); font-size: 1.08rem; letter-spacing: 0.04em; font-weight: 700; }
+.target .tname {
+  min-width: 0; font-family: var(--font-head); font-size: 1.08rem; letter-spacing: 0.04em; font-weight: 700; line-height: 1.15;
+  overflow-wrap: anywhere; /* a single long word still breaks rather than spilling out */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+}
+/* long names: avatar on top, name across the whole card, smaller type */
+.target.long { grid-template-columns: 1fr; align-content: center; justify-items: start; gap: 6px; padding-top: 22px; }
+.target.long .tname { font-size: 0.95rem; letter-spacing: 0.02em; }
+.target.xlong .tname { font-size: 0.82rem; letter-spacing: 0; }
+.target.long .avatar { width: 34px; height: 34px; font-size: 0.85rem; }
+.target.long .badge, .target.long .note { grid-column: 1; }
 .target .badge { grid-column: 2; justify-self: start; color: #6b624f; border-color: #6b624f; }
 .target .note { grid-column: 2; justify-self: start; font-family: var(--font-type); font-size: 0.7rem; color: #6b3b3b; }
 .target .chips { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
@@ -556,3 +566,12 @@ section.center { gap: 14px; }
 @keyframes slide-in { from { transform: translateX(-100%); } }
 @keyframes fade-in { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .drawer-scrim, .drawer-panel { animation: none; } }
+
+/* narrow phones: the host's top bar (menu, room, role, leave) must fit on one line */
+.hud-row > .ghost { white-space: nowrap; }
+@media (max-width: 400px) {
+  .hud-row { gap: 6px; }
+  .hud-label { display: none; }
+  .hud-code { letter-spacing: 0.18em; font-size: 1.05rem; }
+  .hud-row > .ghost.sm { padding: 0 9px; letter-spacing: 0.08em; }
+}

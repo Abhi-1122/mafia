@@ -443,6 +443,10 @@ function targetGrid({ withSkip = false, onPick, chipsOf }) {
         (el, p) => {
           const blocked = p.id === v.blocked;
           setText(el.querySelector('.tname'), p.name);
+          // long names (up to 16 chars) get the full tile width and a smaller font instead of "…"
+          const len = p.skip ? 0 : [...p.name].length;
+          el.classList.toggle('long', len > 8);
+          el.classList.toggle('xlong', len > 12);
           el.querySelector('.badge').hidden = p.connected;
           el.querySelector('.note').hidden = !blocked;
           el.classList.toggle('blocked', blocked);
