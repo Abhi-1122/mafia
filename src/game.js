@@ -6,7 +6,10 @@ export const DEFAULT_CONFIG = { mafia: 1, doctor: 1, detective: 1, jester: 0, sp
 const COUNT_KEYS = ['mafia', 'doctor', 'detective', 'jester'];
 export const SPICES = ['pg', 'pg13'];
 const TEAM_ROLES = ['mafia', 'doctor', 'detective'];
-const freshNight = () => ({ selections: {}, locked: {}, choice: {}, question: null });
+const freshNight = () => ({ selections: {}, locked: {}, choice: {}, acked: {}, question: null });
+// A player is done for the night once locked; detectives also have to acknowledge their result,
+// otherwise the night could resolve before they ever see it.
+const nightDone = (n, p) => n.locked[p.id] && (p.role !== 'detective' || n.acked?.[p.id]);
 
 // Decoy questions for civilians and jesters, so every phone looks the same at night.
 export const QUESTIONS = [
@@ -280,7 +283,7 @@ function settle(state, rng, byRemoval = false) {
     }
   } else if (state.phase === 'night') {
     TEAM_ROLES.forEach((role) => resolveTeam(state, role, rng));
-    if (alive(state).every((p) => state.night.locked[p.id])) resolveNight(state);
+    if (alive(state).every((p) => nightDone(state.night, p))) resolveNight(state);
   } else if (alive(state).every((p) => state.votes[p.id])) {
     tallyVotes(state);
   }
@@ -374,6 +377,16 @@ export function applyAction(state, playerId, action, rng = Math.random) {
       }
       break;
     }
+    case 'ack': {
+      const n = state.night;
+      if (state.phase !== 'night') return 'Wrong phase';
+      if (!me.alive) return 'You are dead';
+      if (me.role !== 'detective') return 'Nothing to acknowledge';
+      if (!n.choice.detective) return 'No result yet';
+      if (n.acked?.[me.id]) return 'Already acknowledged';
+      (n.acked ||= {})[me.id] = true;
+      break;
+    }
     case 'vote': {
       if (state.phase !== 'vote') return 'Wrong phase';
       if (!me.alive) return 'You are dead';
@@ -420,7 +433,7 @@ export function viewFor(state, id) {
     case 'night': {
       const n = state.night;
       const a = alive(state);
-      v.count = { done: a.filter((p) => n.locked[p.id]).length, total: a.length };
+      v.count = { done: a.filter((p) => nightDone(n, p)).length, total: a.length };
       v.locked = false;
       if (me.role === 'detective') v.log = state.detectiveLog.map((e) => ({ ...e, name: name(e.targetId) }));
       if (me.alive) {
@@ -436,6 +449,7 @@ export function viewFor(state, id) {
             .map((p) => ({ id: p.id, name: p.name, targetId: n.selections[p.id], locked: !!n.locked[p.id] }));
           v.choice = n.choice[me.role] || null;
           if (me.role === 'doctor') v.blocked = blockedTarget(state);
+          if (me.role === 'detective') v.acked = !!n.acked?.[me.id];
         } else {
           v.question = n.question;
         }

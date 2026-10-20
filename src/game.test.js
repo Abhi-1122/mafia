@@ -27,6 +27,14 @@ function nightAll(s, picks = {}, rng, skip = []) {
     if (s.night.selections[p.id] !== t) assert.equal(sel(s, num(p), t, rng), null);
     assert.equal(lock(s, num(p), rng), null);
   }
+  ackDetectives(s, rng);
+}
+// detectives must acknowledge their result before the night can resolve
+function ackDetectives(s, rng) {
+  if (s.phase !== 'night' || !s.night.choice.detective) return;
+  for (const p of s.players.filter((q) => q.alive && q.role === 'detective' && !s.night.acked[q.id])) {
+    assert.equal(act(s, num(p), 'ack', undefined, rng), null);
+  }
 }
 // dawn -> vote, everyone skips, verdict -> next night
 function toNextNight(s) {
@@ -644,6 +652,26 @@ function toVote(roles, config) {
   const l = createGame('L');
   addPlayer(l, { name: 'a', token: 'secret-token', isHost: true });
   assert.ok(!JSON.stringify(viewFor(l, 'p1')).includes('secret-token'));
+}
+
+// ---- detective locks last: the night waits until they have seen (acked) the result
+{
+  const s = setup(['mafia', 'doctor', 'detective', 'civilian', 'civilian']);
+  allReady(s);
+  assert.equal(act(s, 3, 'ack'), 'No result yet');
+  nightAll(s, { p1: 'p4', p3: 'p1' }, undefined, ['p3']); // everyone but the detective
+  assert.equal(sel(s, 3, 'p1'), null);
+  assert.equal(lock(s, 3), null);
+  assert.equal(s.phase, 'night'); // all locked, but the detective hasn't seen the result yet
+  const v = viewFor(s, 'p3');
+  assert.equal(v.choice, 'p1');
+  assert.equal(v.acked, false);
+  assert.equal(v.log.at(-1).isMafia, true);
+  assert.deepEqual(viewFor(s, 'p4').count, { done: 4, total: 5 });
+  assert.equal(act(s, 4, 'ack'), 'Nothing to acknowledge');
+  assert.equal(act(s, 3, 'ack'), null);
+  assert.equal(act(s, 3, 'ack'), 'Wrong phase'); // night resolved
+  assert.equal(s.phase, 'dawn');
 }
 
 console.log('game.test.js: all checks passed');
