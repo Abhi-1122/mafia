@@ -481,9 +481,9 @@ export function viewFor(state, id) {
           v.choice = n.choice[me.role] || null;
           if (me.role === 'doctor') v.blocked = blockedTarget(state);
           if (me.role === 'detective') v.acked = !!n.acked?.[me.id];
-        } else {
-          v.question = n.question;
         }
+        // everyone sees the question (so knowing it gives no one away); only askers answer it
+        v.question = n.question;
       }
       break;
     }

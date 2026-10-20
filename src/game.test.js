@@ -305,8 +305,10 @@ function toNextNight(s) {
     assert.equal(v.teamSel, undefined);
     assert.equal(v.action, undefined);
   }
-  assert.equal(viewFor(s, 'p1').question, undefined);
-  assert.equal(viewFor(s, 'p2').question, undefined);
+  assert.equal(viewFor(s, 'p1').question, QUESTIONS[0]); // shown to roles too, but they act instead
+  assert.equal(viewFor(s, 'p1').action, 'mafia');
+  assert.equal(viewFor(s, 'p2').action, 'doctor');
+  assert.equal(viewFor(s, 'p3').action, undefined);
   // teams lock but the night waits for the question answerers
   nightAll(s, { p1: 'p3', p2: 'p3' }, undefined, ['p3', 'p4', 'p5']);
   assert.equal(s.phase, 'night');

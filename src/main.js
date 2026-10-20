@@ -687,6 +687,13 @@ function night(v) {
   const ros = roster('Players', null, { onlyIfOffline: true });
   const ups = [(v) => cnt.set(v.count.done, v.count.total), (v) => ros.update(v)];
   const parts = [];
+  // Everyone knows tonight's question, so knowing it gives no one away. Roles see it but don't answer.
+  const qtext = h('p', { class: 'qtext' });
+  const qline = h('div', { class: 'card qline' }, h('p', { class: 'muted' }, "Tonight's question"), qtext);
+  ups.push((v) => {
+    setText(qtext, v.question || '');
+    qline.hidden = !v.question || (mode === 'act' && !v.action); // answerers already have it as their prompt
+  });
 
   if (mode === 'act') {
     const grid = targetGrid({
@@ -697,9 +704,9 @@ function night(v) {
     const lock = h('button', { class: 'btn primary lockbtn', type: 'button', onclick: () => S.view.mySel && doAct('lock') }, 'Lock in');
     const prompt = h('h2', {});
     parts.push(h('div', { class: 'ttl' }, prompt, h('p', { class: 'muted' },
-      v.you.alive ? 'Choose one player.' : 'You are out, but the Gossip Column still wants your opinion.')), grid.el, lock);
+      v.you.alive ? 'Choose one player.' : 'You are out, but the Gossip Column still wants your opinion.')), qline, grid.el, lock);
     ups.push((v) => {
-      setText(prompt, v.question || NIGHT_PROMPT[v.action]);
+      setText(prompt, v.action ? NIGHT_PROMPT[v.action] : v.question);
       grid.update(v, v.mySel, true);
       lock.disabled = !v.mySel;
       lock.classList.toggle('ready', !!v.mySel);
@@ -710,7 +717,7 @@ function night(v) {
         : h('div', { class: 'watch', 'aria-hidden': 'true' }, h('i', { class: 'wcrown' }), h('i', { class: 'wring' }),
           h('div', { class: 'wface' }, h('i', { class: 'hand hh' }), h('i', { class: 'hand mm' }), h('i', { class: 'hand ss' }), h('i', { class: 'pin' }))),
       h('h2', {}, dead ? 'You are out' : 'Waiting for others...'),
-      h('p', { class: 'muted' }, dead ? 'Answer saved. Haunt quietly until dawn.' : 'Your choice is locked.')));
+      h('p', { class: 'muted' }, dead ? 'Answer saved. Haunt quietly until dawn.' : 'Your choice is locked.')), qline);
   }
 
   // detectives: the team's result and case file, even on the waiting / spectator screens
