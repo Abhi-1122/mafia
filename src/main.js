@@ -599,11 +599,16 @@ function narratorWait() {
 
 // Narrator mode, after everyone has seen their role. Players just get told to look up.
 const LISTEN = [
-  ['This app has left the chat.', 'The Narrator runs things now. Put the phone down and look up.'],
-  ['Phones down. Eyes on the Narrator.', 'The Narrator is your god now. Worship accordingly.'],
-  ['Shh. The Narrator is speaking.', 'Your role lives in your head now, not on this screen.'],
-  ['Nothing to see here.', 'Seriously. Pocket it. The Narrator has the floor.'],
-  ['The app has done its job.', 'From here on, trust the voice of the Narrator. And nobody else.'],
+  ['Stop staring at your phone.', 'That is exactly what a mafia member would do.'],
+  ['Act natural.', 'No. More natural than that.'],
+  ['This phone is now a coaster.', 'Put it face down and look up. Someone here wants you dead.'],
+  ['The app has clocked out.', 'Union rules. The Narrator is on shift now.'],
+  ['Looking for clues on here?', 'Bold. The only clue on this screen is that you look nervous.'],
+  ['You have been reading this for 10 seconds.', 'Everyone noticed. Very suspicious.'],
+  ['Shh. God is speaking.', 'God is just your friend with a slightly louder voice. Still. Respect.'],
+  ['Your screen cannot save you.', 'Only the doctor can. And the doctor is probably bluffing.'],
+  ['Nothing to see here.', 'Unlike the mafia, who can absolutely see you scrolling.'],
+  ['Eyes up, citizen.', 'Or killer. We will never tell. Neither should your face.'],
 ];
 
 function narrate(v) {
@@ -613,7 +618,7 @@ function narrate(v) {
   const ros = roster('At the table');
   return {
     el: h('section', { class: 'narrate' }, h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, out ? '\u{1F47B}' : '\u{1F399}\uFE0F'),
-      h('h2', {}, out ? 'You are out' : head), h('p', { class: 'muted' }, out ? 'Stay quiet. Ghosts do not talk.' : sub)),
+      h('h2', {}, out ? 'You are out' : head), h('p', { class: 'muted' }, out ? 'Ghosts do not talk. Ghosts also do not gasp when the mafia gets named. Behave.' : sub)),
       h('p', { class: 'fine center-t' }, 'Keep this page open: when the Narrator starts a new game you join automatically, no code needed.'), ros.el),
     update(v) { ros.update(v); },
   };
