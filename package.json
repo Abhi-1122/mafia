@@ -1,0 +1,22 @@
+{
+  "name": "mafia",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "node src/game.test.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "type": "module",
+  "devDependencies": {
+    "vite": "^6.4.4"
+  },
+  "dependencies": {
+    "trystero": "^0.26.0"
+  }
+}
