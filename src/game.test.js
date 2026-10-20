@@ -544,15 +544,15 @@ function toVote(roles, config) {
   assert.equal(s.phase, 'over');
 }
 
-// ---- host removal of stuck players
+// ---- host kicks (AFK / stuck players), any phase
 {
   const s = setup(['mafia', 'doctor', 'civilian', 'civilian', 'civilian']);
   s.players[3].connected = false;
-  assert.equal(act(s, 2, 'remove', 'p4'), 'Only the host can do that');
-  assert.equal(act(s, 1, 'remove', 'p5'), 'Can only remove offline players'); // connected
+  assert.equal(act(s, 2, 'kick', 'p4'), 'Only the host can do that');
+  assert.equal(act(s, 1, 'kick', 'p1'), 'Invalid player'); // the host can't kick themselves
   [1, 2, 3, 5].forEach((i) => act(s, i, 'ready'));
   assert.equal(s.phase, 'roles'); // waits for the offline player
-  assert.equal(act(s, 1, 'remove', 'p4'), null);
+  assert.equal(act(s, 1, 'kick', 'p4'), null);
   assert.equal(s.phase, 'night'); // requirement dropped
   assert.equal(s.players[3].alive, false);
 }
@@ -563,7 +563,7 @@ function toVote(roles, config) {
   nightAll(s, { p1: 'p3' }, undefined, ['p2']);
   s.players[1].connected = false;
   assert.equal(s.phase, 'night');
-  assert.equal(act(s, 1, 'remove', 'p2'), null);
+  assert.equal(act(s, 1, 'kick', 'p2'), null);
   assert.equal(s.players[1].alive, false);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.lastEvent.killedId, 'p3');
@@ -574,7 +574,7 @@ function toVote(roles, config) {
   allReady(s);
   nightAll(s, { p1: 'p3' }, undefined, ['p2']);
   s.players[1].connected = false;
-  assert.equal(act(s, 1, 'remove', 'p2'), null);
+  assert.equal(act(s, 1, 'kick', 'p2'), null);
   assert.equal(s.night.choice.mafia, 'p3');
   assert.equal(s.phase, 'dawn');
 }
@@ -585,7 +585,7 @@ function toVote(roles, config) {
   s.players[0].connected = false;
   s.players[0].isHost = false;
   s.players[1].isHost = true;
-  assert.equal(act(s, 2, 'remove', 'p1'), null);
+  assert.equal(act(s, 2, 'kick', 'p1'), null);
   assert.equal(s.winner, 'town');
   assert.equal(s.phase, 'over');
 }
@@ -594,7 +594,7 @@ function toVote(roles, config) {
   const s = toVote(['mafia', 'doctor', 'civilian', 'civilian', 'civilian']);
   ['p1', 'p2', 'p3', 'p4'].forEach((p) => act(s, +p.slice(1), 'vote', 'skip'));
   s.players[4].connected = false;
-  assert.equal(act(s, 1, 'remove', 'p5'), null);
+  assert.equal(act(s, 1, 'kick', 'p5'), null);
   assert.equal(s.phase, 'verdict');
   assert.equal(s.lastEvent.eliminatedId, null);
 }
@@ -607,6 +607,38 @@ function toVote(roles, config) {
   assert.equal(act(s, 1, 'kick', 'p1'), 'Invalid player');
   assert.equal(act(s, 1, 'kick', 'p2'), null);
   assert.equal(s.players.length, 1);
+}
+{
+  // kick a connected player mid-night: silent death, marked so they can't rejoin
+  const s = setup(['mafia', 'doctor', 'civilian', 'civilian', 'civilian']);
+  allReady(s);
+  assert.equal(act(s, 1, 'kick', 'p4'), null);
+  assert.equal(s.players[3].alive, false);
+  assert.equal(s.players[3].kicked, true);
+  assert.equal(s.lastEvent, null); // no announcement
+  assert.equal(act(s, 1, 'kick', 'p4'), null); // already out: harmless
+}
+{
+  // kick during dawn / verdict / narrate can end the game; in game over it just drops the seat
+  const d = setup(['mafia', 'civilian', 'civilian', 'civilian', 'civilian']);
+  allReady(d);
+  nightAll(d, { p1: 'p2' });
+  assert.equal(d.phase, 'dawn');
+  d.players[0].isHost = false; d.players[2].isHost = true;
+  assert.equal(act(d, 3, 'kick', 'p1'), null);
+  assert.equal(d.phase, 'over');
+  assert.equal(d.winner, 'town');
+  assert.equal(act(d, 3, 'kick', 'p4'), null);
+  assert.ok(!d.players.some((p) => p.id === 'p4'));
+  const v = toVote(['mafia', 'civilian', 'civilian', 'civilian', 'civilian']);
+  ['p1', 'p2', 'p3', 'p4', 'p5'].forEach((p) => act(v, +p.slice(1), 'vote', 'skip'));
+  assert.equal(v.phase, 'verdict');
+  v.players[0].isHost = false; v.players[1].isHost = true;
+  act(v, 2, 'kick', 'p1');
+  assert.equal(v.phase, 'verdict'); // verdict still plays out
+  assert.equal(v.winner, 'town');
+  advance(v);
+  assert.equal(v.phase, 'over');
 }
 
 // ---- viewFor leaks nothing

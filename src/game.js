@@ -85,17 +85,22 @@ export function addPlayer(state, { name, token, isHost = false }) {
   return { player };
 }
 
+// Lobby / game over: the seat just goes. Mid-game: a silent death (no event, no role reveal),
+// and the player can't rejoin this game.
 export function removePlayer(state, id) {
   const p = byId(state, id);
   if (!p) return;
-  if (state.phase === 'lobby') {
+  if (state.phase === 'lobby' || state.phase === 'over') {
     state.players = state.players.filter((q) => q.id !== id);
     return;
   }
-  if (state.phase === 'over' || !p.alive) return;
-  p.alive = false; // removal == silent death: no event, no role reveal
+  p.kicked = true;
   p.connected = false;
-  settle(state, Math.random, true);
+  if (!p.alive) return;
+  p.alive = false;
+  if (state.phase === 'verdict') winCheck(state); // the winner is shown after the verdict
+  else if (state.phase === 'dawn' || state.phase === 'narrate') { if (winCheck(state)) state.phase = 'over'; }
+  else settle(state, Math.random, true);
 }
 
 export function setConfig(state, cfg) {
@@ -362,20 +367,11 @@ export function applyAction(state, playerId, action, rng = Math.random) {
       if (winCheck(state, target.how === 'voted' ? t.id : null)) state.phase = 'over';
       return null;
     }
-    case 'kick': {
-      const e = hostOnly();
-      if (e) return e;
-      if (state.phase !== 'lobby') return 'Can only kick in the lobby';
-      if (target === me.id || !byId(state, target)) return 'Invalid player';
-      removePlayer(state, target);
-      return null;
-    }
-    case 'remove': {
+    case 'kick': { // host menu, any phase: e.g. someone went AFK
       const e = hostOnly();
       if (e) return e;
       const t = byId(state, target);
-      if (!['roles', 'night', 'vote'].includes(state.phase)) return 'Cannot remove now';
-      if (!t || !t.alive || t.isHost || t.connected) return 'Can only remove offline players';
+      if (!t || t.isHost) return 'Invalid player';
       removePlayer(state, t.id);
       return null;
     }

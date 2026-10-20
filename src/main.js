@@ -333,11 +333,32 @@ const hud = (() => {
     class: 'ghost sm peekbtn', type: 'button', onpointerdown: show(true), onpointerup: show(false),
     onpointerleave: show(false), onpointercancel: show(false), oncontextmenu: (e) => e.preventDefault(),
   }, 'Hold: role');
-  el.append(h('div', { class: 'hud-row' }, h('span', { class: 'hud-label' }, 'Room'), code, peek,
+  // Host menu (top left): every player with a Kick button, in any phase. The only place to kick.
+  const menuList = h('div', { class: 'plist' });
+  const drawer = h('div', { class: 'drawer', hidden: true });
+  const fillMenu = (v) => sync(menuList, v.players.filter((p) => !p.isHost), (p) => p.id,
+    (p) => h('div', { class: 'prow' }, avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'badge off' }, 'offline'),
+      h('button', { class: 'ghost sm kick', type: 'button', onclick: () => confirm(`Kick ${p.name}?`) && doAct('kick', p.id) }, 'Kick')),
+    (row, p) => {
+      setText(row.querySelector('.pname'), p.name);
+      row.classList.toggle('dead', !p.alive);
+      row.querySelector('.badge').hidden = p.connected;
+    });
+  const openMenu = (on) => { drawer.hidden = !on; if (on) fillMenu(S.view); };
+  drawer.append(h('div', { class: 'drawer-scrim', onclick: () => openMenu(false) }),
+    h('aside', { class: 'drawer-panel' },
+      h('div', { class: 'card-head' }, h('h3', {}, 'Players'), h('button', { class: 'ghost sm', type: 'button', onclick: () => openMenu(false) }, 'Close')),
+      h('p', { class: 'muted' }, 'Kick anyone who went AFK. Mid-game they quietly drop out, nothing is revealed, and they cannot rejoin this game.'),
+      menuList));
+  const menu = h('button', { class: 'ghost sm menubtn', type: 'button', 'aria-label': 'Players menu', onclick: () => openMenu(true) }, '\u2630');
+  el.append(h('div', { class: 'hud-row' }, menu, h('span', { class: 'hud-label' }, 'Room'), code, peek,
     h('button', { class: 'ghost sm', type: 'button', onclick: leaveRoom }, 'Leave')), banner, stale);
-  document.body.append(peekBox);
+  document.body.append(peekBox, drawer);
   return {
     update() {
+      menu.hidden = !(S.mode === 'game' && S.view?.you.isHost);
+      if (menu.hidden) drawer.hidden = true;
+      else if (!drawer.hidden) fillMenu(S.view);
       const inGame = (S.mode === 'game' && S.view) || S.mode === 'connecting';
       el.hidden = !inGame;
       peek.hidden = !['night', 'dawn', 'vote', 'verdict', 'narrate'].includes(S.view?.phase) || S.mode !== 'game' || !S.view.you.role;
@@ -382,9 +403,6 @@ function counter(label) {
   };
 }
 
-function canRemove(v, p) {
-  return v.you.isHost && !p.connected && p.alive && !p.isHost && ['roles', 'night', 'vote'].includes(v.phase);
-}
 
 // Player roster with offline badges, optional check marks and host-only Remove.
 function roster(title, marksOf, { onlyIfOffline = false } = {}) {
@@ -398,14 +416,12 @@ function roster(title, marksOf, { onlyIfOffline = false } = {}) {
       const marks = new Set(marksOf ? marksOf(v) : []);
       sync(list, v.players, (p) => p.id,
         (p) => h('div', { class: 'prow' }, avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'tick' }, '✓'),
-          h('span', { class: 'badge off' }, 'offline'),
-          h('button', { class: 'ghost sm rm', type: 'button', onclick: () => doAct('remove', p.id) }, 'Remove')),
+          h('span', { class: 'badge off' }, 'offline')),
         (row, p) => {
           setText(row.querySelector('.pname'), p.name);
           row.classList.toggle('dead', !p.alive);
           row.classList.toggle('done', marks.has(p.id));
           row.querySelector('.badge').hidden = p.connected;
-          row.querySelector('.rm').hidden = !canRemove(v, p);
         });
     },
   };
@@ -524,12 +540,11 @@ function lobby(v) {
       setText(count, `${v.players.length} / ${MAX_PLAYERS}`);
       sync(plist, v.players, (p) => p.id,
         (p) => h('div', { class: 'prow' }, avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'tag crown' }, '♛ host'),
-          h('span', { class: 'tag you' }, 'you'), h('button', { class: 'ghost sm rm', type: 'button', 'aria-label': 'Remove player', onclick: () => doAct('kick', p.id) }, 'Kick')),
+          h('span', { class: 'tag you' }, 'you')),
         (row, p) => {
           setText(row.querySelector('.pname'), p.name);
           row.querySelector('.crown').hidden = !p.isHost;
           row.querySelector('.you').hidden = p.id !== v.you.id;
-          row.querySelector('.rm').hidden = !(v.you.isHost && p.id !== v.you.id);
         });
       const narr = !!v.config.narrator;
       const n = v.players.length - (narr ? 1 : 0); // the narrator gets no role

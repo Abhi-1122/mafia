@@ -59,6 +59,7 @@ export function hostRoom(state, onChange) {
     const known = state.players.find((p) => p.token === data.token);
     if (known) {
       if (known.isHost) return; // host's own token arriving from a peer: ignore
+      if (known.kicked) return reply('Removed by host');
       for (const [k, v] of peers) if (v === known.id) peers.delete(k);
       peers.set(peerId, known.id);
       known.connected = true;

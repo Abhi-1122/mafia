@@ -540,3 +540,19 @@ section.center { gap: 14px; }
 /* ---------- tonight's question, shown to everyone ---------- */
 .qline { text-align: center; padding: 12px 16px; }
 .qline .qtext { font-family: var(--font-news); font-style: italic; font-weight: 900; font-size: 1.05rem; color: var(--champagne); margin-top: 4px; }
+
+/* ---------- host menu (players + kick) ---------- */
+.menubtn { font-size: 1.2rem; padding: 0 12px; color: var(--gold-light); }
+.drawer { position: fixed; inset: 0; z-index: 75; }
+.drawer-scrim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.6); animation: fade-in 0.2s ease-out; }
+.drawer-panel {
+  position: absolute; top: 0; bottom: 0; left: 0; width: min(340px, 86vw); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px; background: var(--charcoal); border-right: 1px solid var(--gold-dark);
+  padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + 16px);
+  box-shadow: 12px 0 40px rgba(0, 0, 0, 0.6); animation: slide-in 0.28s var(--ease);
+}
+.drawer-panel .pname { flex: 1; }
+.drawer-panel .kick { color: #ff8f9d; border-color: rgba(194, 38, 58, 0.6); }
+@keyframes slide-in { from { transform: translateX(-100%); } }
+@keyframes fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .drawer-scrim, .drawer-panel { animation: none; } }
