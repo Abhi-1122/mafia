@@ -778,41 +778,32 @@ function vote(v) {
     parts.push(h('div', { class: 'ttl' }, h('div', { class: 'seal', 'aria-hidden': 'true' }, h('i', {}, '★')), h('h2', {}, 'Vote locked'), h('p', { class: 'muted' }, 'Waiting for the others...')), h('div', { class: 'card result' }, who));
     ups.push((v) => setText(who, v.myVote === 'skip' ? 'You skipped' : nm(v, v.myVote)));
   } else {
-    // the dead can't vote, but they see every vote land, live
-    const feed = h('div', { class: 'plist feed' });
-    const empty = h('p', { class: 'muted center-t' }, 'No votes yet.');
-    parts.push(h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, '\u{1F47B}'), h('h2', {}, 'You are out'),
-      h('p', { class: 'muted' }, 'No vote for you, but you get the best seat: every vote, live. Keep a straight face.')),
-    h('div', { class: 'card' }, h('h3', {}, 'Live votes'), empty, feed));
-    // the dead see every role (keep a straight face)
+    // the dead can't vote, but get one box with every role and every vote as it lands
     const who = h('div', { class: 'plist' });
-    parts.push(h('div', { class: 'card lineup' }, h('h3', {}, 'Who is who'), who));
+    parts.push(h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, '\u{1F47B}'), h('h2', {}, 'You are out'),
+      h('p', { class: 'muted' }, 'No vote for you, but you get the best seat: every role, every vote, live. Keep a straight face.')),
+    h('div', { class: 'card lineup ghostbox' }, h('h3', {}, 'Who is who'), who));
     ups.push((v) => {
-      const roleOf = Object.fromEntries((v.roles || []).map((r) => [r.id, r.role]));
+      const roleOf = Object.fromEntries((v.roles || []).map((r) => [r.id, r.role])); // an out-of-date host sends none
+      const voteOf = Object.fromEntries((v.liveVotes || []).map((x) => [x.from, x.to ?? 'Skip']));
       sync(who, v.players.filter((p) => roleOf[p.id]), (p) => p.id,
-        (p) => h('div', { class: 'prow' }, avatar(p.name, p.id), h('span', { class: 'pname' }), h('span', { class: 'rtag' })),
+        (p) => h('div', { class: 'prow' }, avatar(p.name, p.id),
+          h('span', { class: 'pcol' }, h('span', { class: 'pname' }), h('span', { class: 'vto' })),
+          h('span', { class: 'tick' }, '✓'), h('span', { class: 'rtag' })),
         (row, p) => {
           const r = roleOf[p.id];
+          const to = voteOf[p.name];
           setText(row.querySelector('.pname'), p.name + (p.id === v.you.id ? ' (you)' : '') + (p.alive ? '' : ' †'));
+          setText(row.querySelector('.vto'), to ? '→ ' + to : '');
           row.classList.toggle('dead', !p.alive);
+          row.classList.toggle('done', !!to);
           const t = row.querySelector('.rtag');
           setText(t, ROLE[r].icon + ' ' + ROLE[r].label);
           t.className = 'rtag r-' + r;
         });
     });
-    ups.push((v) => {
-      const live = v.liveVotes || []; // an out-of-date host sends none
-      empty.hidden = live.length > 0;
-      sync(feed, live, (x) => x.from,
-        () => h('div', { class: 'prow vrow' }, h('span', { class: 'pname' }), h('span', { class: 'arrow' }, '→'), h('span', { class: 'vto' })),
-        (row, x) => {
-          setText(row.querySelector('.pname'), x.from);
-          setText(row.querySelector('.vto'), x.to ?? 'Skip');
-          row.classList.toggle('skip', !x.to);
-        });
-    });
   }
-  parts.push(cnt.el, ros.el);
+  parts.push(cnt.el, mode === 'dead' ? null : ros.el); // the dead's box already has the ticks
   return { el: h('section', { class: 'vote' }, parts), update: (v) => ups.forEach((f) => f(v)) };
 }
 

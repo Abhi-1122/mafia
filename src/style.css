@@ -530,9 +530,7 @@ section.center { gap: 14px; }
 .acts { display: flex; gap: 8px; padding: 4px 0 12px; animation: deal 0.3s var(--ease) backwards; }
 .acts .btn.sm { flex: 1; min-height: 48px; font-size: 0.8rem; letter-spacing: 0.06em; padding: 0 8px; }
 
-/* ---------- dead players' live vote feed ---------- */
-.feed .vrow { gap: 12px; }
-.feed .pname { flex: 1; }
-.feed .arrow { color: var(--gold); }
-.feed .vto { font-family: var(--font-head); color: var(--champagne); letter-spacing: 0.06em; }
-.feed .vrow.skip .vto { color: var(--muted); }
+/* ---------- dead players' box: roles + live votes ---------- */
+.ghostbox .pcol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.ghostbox .vto { font-family: var(--font-head); font-size: 0.8rem; color: var(--gold-light); letter-spacing: 0.04em; }
+.ghostbox .vto:empty { display: none; }
