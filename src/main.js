@@ -678,7 +678,8 @@ const NIGHT_PROMPT = {
 };
 
 function night(v) {
-  const mode = !v.you.alive ? 'dead' : v.locked ? 'wait' : 'act';
+  // the dead still answer the night question; once answered they get the ghost screen
+  const mode = v.locked ? (v.you.alive ? 'wait' : 'dead') : 'act';
   const cnt = counter('Locked in');
   const ros = roster('Players', null, { onlyIfOffline: true });
   const ups = [(v) => cnt.set(v.count.done, v.count.total), (v) => ros.update(v)];
@@ -692,7 +693,8 @@ function night(v) {
     });
     const lock = h('button', { class: 'btn primary lockbtn', type: 'button', onclick: () => S.view.mySel && doAct('lock') }, 'Lock in');
     const prompt = h('h2', {});
-    parts.push(h('div', { class: 'ttl' }, prompt, h('p', { class: 'muted' }, 'Choose one player.')), grid.el, lock);
+    parts.push(h('div', { class: 'ttl' }, prompt, h('p', { class: 'muted' },
+      v.you.alive ? 'Choose one player.' : 'You are out, but the Gossip Column still wants your opinion.')), grid.el, lock);
     ups.push((v) => {
       setText(prompt, v.question || NIGHT_PROMPT[v.action]);
       grid.update(v, v.mySel, true);
@@ -705,7 +707,7 @@ function night(v) {
         : h('div', { class: 'watch', 'aria-hidden': 'true' }, h('i', { class: 'wcrown' }), h('i', { class: 'wring' }),
           h('div', { class: 'wface' }, h('i', { class: 'hand hh' }), h('i', { class: 'hand mm' }), h('i', { class: 'hand ss' }), h('i', { class: 'pin' }))),
       h('h2', {}, dead ? 'You are out' : 'Waiting for others...'),
-      h('p', { class: 'muted' }, dead ? 'Watching the night from beyond.' : 'Your choice is locked.')));
+      h('p', { class: 'muted' }, dead ? 'Answer saved. Haunt quietly until dawn.' : 'Your choice is locked.')));
   }
 
   // detectives: the team's result and case file, even on the waiting / spectator screens
@@ -772,7 +774,22 @@ function vote(v) {
     parts.push(h('div', { class: 'ttl' }, h('div', { class: 'seal', 'aria-hidden': 'true' }, h('i', {}, '★')), h('h2', {}, 'Vote locked'), h('p', { class: 'muted' }, 'Waiting for the others...')), h('div', { class: 'card result' }, who));
     ups.push((v) => setText(who, v.myVote === 'skip' ? 'You skipped' : nm(v, v.myVote)));
   } else {
-    parts.push(h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, '\u{1F47B}'), h('h2', {}, 'You are out'), h('p', { class: 'muted' }, 'You can watch, but not vote.')));
+    // the dead can't vote, but they see every vote land, live
+    const feed = h('div', { class: 'plist feed' });
+    const empty = h('p', { class: 'muted center-t' }, 'No votes yet.');
+    parts.push(h('div', { class: 'ttl wait' }, h('div', { class: 'big-icon' }, '\u{1F47B}'), h('h2', {}, 'You are out'),
+      h('p', { class: 'muted' }, 'No vote for you, but you get the best seat: every vote, live. Keep a straight face.')),
+    h('div', { class: 'card' }, h('h3', {}, 'Live votes'), empty, feed));
+    ups.push((v) => {
+      empty.hidden = v.liveVotes.length > 0;
+      sync(feed, v.liveVotes, (x) => x.from,
+        () => h('div', { class: 'prow vrow' }, h('span', { class: 'pname' }), h('span', { class: 'arrow' }, '→'), h('span', { class: 'vto' })),
+        (row, x) => {
+          setText(row.querySelector('.pname'), x.from);
+          setText(row.querySelector('.vto'), x.to ?? 'Skip');
+          row.classList.toggle('skip', !x.to);
+        });
+    });
   }
   parts.push(cnt.el, ros.el);
   return { el: h('section', { class: 'vote' }, parts), update: (v) => ups.forEach((f) => f(v)) };

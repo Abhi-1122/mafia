@@ -6,6 +6,9 @@ export const DEFAULT_CONFIG = { mafia: 1, doctor: 1, detective: 1, jester: 0, sp
 const COUNT_KEYS = ['mafia', 'doctor', 'detective', 'jester'];
 export const SPICES = ['pg', 'pg13'];
 const TEAM_ROLES = ['mafia', 'doctor', 'detective'];
+// Who answers the night's decoy question: living civilians/jesters, plus everyone who is out
+// (the dead get something to do; their answers never hold up the night).
+const asksQuestion = (p) => !!p.role && (!p.alive || !TEAM_ROLES.includes(p.role));
 const freshNight = () => ({ selections: {}, locked: {}, choice: {}, acked: {}, question: null });
 // A player is done for the night once locked; detectives also have to acknowledge their result,
 // otherwise the night could resolve before they ever see it.
@@ -228,7 +231,7 @@ function beginNight(state, rng) {
   }
   state.usedQuestions.push(q);
   state.night.question = q.text;
-  if (alive(state).some((p) => !TEAM_ROLES.includes(p.role))) {
+  if (state.players.some(asksQuestion)) {
     state.funLog.push({ round: state.round, question: q.text, answers: {} });
   }
 }
@@ -325,10 +328,10 @@ export const blockedTarget = (state) =>
 
 export function nightTargets(state, me) {
   const a = alive(state);
-  if (me.role === 'mafia') return a.filter((p) => p.role !== 'mafia');
+  if (asksQuestion(me)) return state.players.filter((p) => p.role); // decoy question: anyone at the table, yourself included
+  if (me.role === 'mafia') return a; // mafia may hit a teammate, or themselves
   if (me.role === 'doctor') return a.filter((p) => p.id !== blockedTarget(state));
-  if (me.role === 'detective') return a.filter((p) => p.role !== 'detective');
-  return a.filter((p) => p.id !== me.id); // decoy question: anyone but yourself
+  return a.filter((p) => p.role !== 'detective');
 }
 
 // Returns an error string, or null on success. State is mutated in place.
@@ -386,7 +389,7 @@ export function applyAction(state, playerId, action, rng = Math.random) {
     case 'select':
     case 'lock': {
       if (state.phase !== 'night') return 'Wrong phase';
-      if (!me.alive) return 'You are dead';
+      if (!me.role) return 'The narrator does not play';
       const n = state.night;
       if (n.locked[me.id]) return 'Already locked';
       if (kind === 'select') {
@@ -399,7 +402,7 @@ export function applyAction(state, playerId, action, rng = Math.random) {
       }
       if (!n.selections[me.id]) return 'Select a target first';
       n.locked[me.id] = true;
-      if (!TEAM_ROLES.includes(me.role)) {
+      if (asksQuestion(me)) {
         const entry = state.funLog.find((e) => e.round === state.round);
         if (entry) entry.answers[me.id] = n.selections[me.id];
       }
@@ -464,11 +467,11 @@ export function viewFor(state, id) {
       v.count = { done: a.filter((p) => nightDone(n, p)).length, total: a.length };
       v.locked = false;
       if (me.role === 'detective') v.log = state.detectiveLog.map((e) => ({ ...e, name: name(e.targetId) }));
-      if (me.alive) {
+      if (me.role) {
         v.locked = !!n.locked[me.id];
         v.mySel = n.selections[me.id] || null;
         v.targets = nightTargets(state, me).map((p) => p.id);
-        if (TEAM_ROLES.includes(me.role)) {
+        if (!asksQuestion(me)) {
           v.action = me.role;
           const mates = a.filter((p) => p.role === me.role && p.id !== me.id);
           v.team = mates.map((p) => ({ id: p.id, name: p.name, locked: !!n.locked[p.id] }));
@@ -500,6 +503,8 @@ export function viewFor(state, id) {
       v.locked = !!state.votes[me.id];
       v.myVote = state.votes[me.id] || null;
       v.targets = me.alive ? a.filter((p) => p.id !== me.id).map((p) => p.id) : [];
+      // the dead can't vote, but they get to watch who is voting for whom, live
+      if (!me.alive) v.liveVotes = Object.entries(state.votes).map(([from, t]) => ({ from: name(from), to: t === 'skip' ? null : name(t) }));
       break;
     }
     case 'verdict': {

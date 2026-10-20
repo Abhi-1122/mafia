@@ -364,3 +364,12 @@ and `npm run build` must succeed.
   (a voted-out jester wins) → `over`.
 - Host `newgame` (any phase, after a confirm) returns everyone to the lobby without
   re-entering the code.
+
+## Later rule changes
+
+- Dead players (any role) answer the night's decoy question. Their answers go in the
+  Gossip Column, but the night never waits for them.
+- Decoy-question targets are everyone at the table, dead or alive, yourself included.
+- Mafia can target anyone alive, including teammates and themselves. A mafia death
+  is announced like any other death; if it kills the last mafia, the town wins.
+- In the vote phase, dead players see every vote live (`liveVotes`) but cannot vote.

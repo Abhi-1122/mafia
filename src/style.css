@@ -529,3 +529,10 @@ section.center { gap: 14px; }
 .ledger .status { font-family: var(--font-type); font-size: 0.8rem; color: #ff8f9d; white-space: nowrap; }
 .acts { display: flex; gap: 8px; padding: 4px 0 12px; animation: deal 0.3s var(--ease) backwards; }
 .acts .btn.sm { flex: 1; min-height: 48px; font-size: 0.8rem; letter-spacing: 0.06em; padding: 0 8px; }
+
+/* ---------- dead players' live vote feed ---------- */
+.feed .vrow { gap: 12px; }
+.feed .pname { flex: 1; }
+.feed .arrow { color: var(--gold); }
+.feed .vto { font-family: var(--font-head); color: var(--champagne); letter-spacing: 0.06em; }
+.feed .vrow.skip .vto { color: var(--muted); }

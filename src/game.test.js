@@ -24,7 +24,8 @@ const lock = (s, i, rng) => act(s, i, 'lock', undefined, rng);
 function nightAll(s, picks = {}, rng, skip = []) {
   for (const p of s.players.filter((q) => q.alive && !skip.includes(q.id))) {
     if (s.night.locked[p.id]) continue;
-    const t = picks[p.id] ?? s.night.selections[p.id] ?? nightTargets(s, p)[0].id;
+    // default: first eligible target, but keep mafia off their own team so old scenarios hold
+    const t = picks[p.id] ?? s.night.selections[p.id] ?? nightTargets(s, p).find((q) => p.role !== 'mafia' || q.role !== 'mafia').id;
     if (s.night.selections[p.id] !== t) assert.equal(sel(s, num(p), t, rng), null);
     assert.equal(lock(s, num(p), rng), null);
   }
@@ -94,9 +95,11 @@ function toNextNight(s) {
   assert.equal(sel(s, 1, 'p2'), 'Wrong phase');
   allReady(s);
   assert.equal(s.phase, 'night');
-  assert.equal(sel(s, 1, 'p1'), 'Invalid target'); // mafia -> mafia
+  assert.equal(sel(s, 1, 'p1'), null); // mafia may target themselves
+  assert.equal(sel(s, 1, 'p1'), null); // (tap again clears)
   assert.equal(sel(s, 3, 'p3'), 'Invalid target'); // detective -> detective (self)
-  assert.equal(sel(s, 4, 'p4'), 'Invalid target'); // decoy question: not yourself
+  assert.equal(sel(s, 4, 'p4'), null); // decoy question: yourself is fine
+  assert.equal(sel(s, 4, 'p4'), null);
   assert.equal(sel(s, 3, 'nope'), 'Invalid target');
   assert.equal(sel(s, 3, 42), 'Invalid target');
   assert.equal(sel(s, 9, 'p1'), 'Unknown player');
@@ -222,7 +225,8 @@ function toNextNight(s) {
   assert.equal(sel(s, 1, 'p5'), null); // tap again clears
   assert.equal(s.night.selections.p1, undefined);
   assert.equal(lock(s, 1), 'Select a target first');
-  assert.equal(sel(s, 1, 'p2'), 'Invalid target'); // mafia teammate
+  assert.equal(sel(s, 1, 'p2'), null); // mafia may target a teammate
+  assert.equal(sel(s, 1, 'p2'), null); // (clear it again)
   assert.equal(sel(s, 3, 'p3'), null); // doctor may pick self
   assert.equal(s.night.locked.p1, undefined); // selecting never locks
   sel(s, 1, 'p4');
@@ -297,7 +301,7 @@ function toNextNight(s) {
   for (const who of ['p3', 'p4', 'p5']) {
     const v = viewFor(s, who);
     assert.equal(v.question, QUESTIONS[0]);
-    assert.ok(!v.targets.includes(who));
+    assert.ok(v.targets.includes(who)); // you may name yourself
     assert.equal(v.teamSel, undefined);
     assert.equal(v.action, undefined);
   }
@@ -308,7 +312,7 @@ function toNextNight(s) {
   assert.equal(s.phase, 'night');
   assert.equal(s.night.choice.mafia, 'p3');
   assert.deepEqual(viewFor(s, 'p1').count, { done: 2, total: 5 });
-  assert.equal(sel(s, 3, 'p3'), 'Invalid target');
+  assert.equal(sel(s, 3, 'p3'), null); // answering a question about yourself is allowed
   assert.equal(sel(s, 3, 'p4'), null);
   assert.equal(lock(s, 3), null);
   assert.equal(sel(s, 3, 'p5'), 'Already locked');
@@ -759,6 +763,61 @@ function toVote(roles, config) {
   assert.equal(s.phase, 'narrate');
   const m = s.players.find((p) => p.role === 'mafia');
   applyAction(s, 'p1', { kind: 'mark', target: { id: m.id, how: 'voted' } });
+  assert.equal(s.winner, 'town');
+}
+
+// ---- the dead answer the night question (optional, never block); they watch votes live
+{
+  const s = setup(['mafia', 'mafia', 'doctor', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 2, doctor: 1, detective: 0 });
+  allReady(s);
+  nightAll(s, { p1: 'p4', p2: 'p4', p3: 'p5' }); // p4 dies
+  assert.equal(s.phase, 'dawn');
+  advance(s); // vote
+  act(s, 1, 'vote', 'p2'); act(s, 6, 'vote', 'skip');
+  const dead = viewFor(s, 'p4');
+  assert.deepEqual(dead.liveVotes, [{ from: 'P1', to: 'P2' }, { from: 'P6', to: null }]);
+  assert.deepEqual(dead.targets, []);
+  assert.equal(act(s, 4, 'vote', 'p1'), 'You are dead');
+  assert.equal(viewFor(s, 'p5').liveVotes, undefined); // the living only see who has voted
+  ['p2', 'p3', 'p5', 'p7'].forEach((id) => act(s, +id.slice(1), 'vote', 'skip'));
+  advance(s); // night 2
+  assert.equal(s.phase, 'night');
+  const dv = viewFor(s, 'p4');
+  assert.equal(dv.question, s.night.question); // the dead get the question too
+  assert.ok(dv.targets.includes('p4') && dv.targets.includes('p1'));
+  // everyone alive locks first: the night must not wait for the dead
+  nightAll(s, { p1: 'p5', p2: 'p5', p3: 'p6' }, undefined, ['p4']);
+  assert.equal(s.phase, 'dawn');
+  assert.equal(sel(s, 4, 'p1'), 'Wrong phase'); // too late, that's fine
+}
+{
+  // a dead player who answers in time is recorded
+  const s = setup(['mafia', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 1, doctor: 0, detective: 0 });
+  allReady(s);
+  nightAll(s, { p1: 'p2' });
+  advance(s);
+  ['p1', 'p3', 'p4', 'p5'].forEach((id) => act(s, +id.slice(1), 'vote', 'skip'));
+  advance(s);
+  assert.equal(sel(s, 2, 'p2'), null); // dead p2 names themselves
+  assert.equal(lock(s, 2), null);
+  assert.equal(s.funLog.at(-1).answers.p2, 'p2');
+}
+// ---- mafia may kill a teammate or themselves; the dawn reveals no role
+{
+  const s = setup(['mafia', 'mafia', 'civilian', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 2, doctor: 0, detective: 0 });
+  allReady(s);
+  assert.ok(viewFor(s, 'p1').targets.includes('p1') && viewFor(s, 'p1').targets.includes('p2'));
+  nightAll(s, { p1: 'p2', p2: 'p2' });
+  assert.equal(s.phase, 'dawn');
+  assert.deepEqual(viewFor(s, 'p5').event, { killedId: 'p2', killedName: 'P2' });
+  assert.ok(!JSON.stringify(viewFor(s, 'p5').players).includes('role'), 'dawn must not reveal the role');
+}
+{
+  // the last mafia killing themselves hands the town the win
+  const s = setup(['mafia', 'civilian', 'civilian', 'civilian'], { mafia: 1, doctor: 0, detective: 0 });
+  allReady(s);
+  nightAll(s, { p1: 'p1' });
+  assert.equal(s.phase, 'over');
   assert.equal(s.winner, 'town');
 }
 
