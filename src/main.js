@@ -12,7 +12,22 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* no storage: still works */ } },
   del(k) { try { localStorage.removeItem(k); } catch { /* ignore */ } },
   json(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  // ponytail: XOR+base64 only stops casual peeking at saved roles; the key ships in this file, so it is not security.
+  seal(k, obj) {
+    const b = new TextEncoder().encode(JSON.stringify(obj));
+    let s = '';
+    for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i] ^ MASK.charCodeAt(i % MASK.length));
+    this.set(k, btoa(s));
+  },
+  unseal(k) {
+    try {
+      const s = atob(localStorage.getItem(k));
+      const b = Uint8Array.from(s, (c, i) => c.charCodeAt(0) ^ MASK.charCodeAt(i % MASK.length));
+      return JSON.parse(new TextDecoder().decode(b));
+    } catch { return null; }
+  },
 };
+const MASK = 'speakeasy-noir';
 const uuid = () =>
   (crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join(''));
 const getToken = () => {
@@ -176,7 +191,8 @@ function setUrl(code) { try { history.replaceState(null, '', '?room=' + code); }
 /* ---- host ---- */
 
 function onHostChange(state) {
-  store.set('mafia-host-' + state.code, JSON.stringify(state));
+  store.seal('mafia-host-' + state.code, state);
+  store.set('mafia-at', String(Date.now()));
   armTimer(state);
   prefetchQuestion(state);
   const me = state.players.find((p) => p.isHost);
@@ -207,7 +223,7 @@ async function prefetchQuestion(state) {
     for (let attempt = 0; attempt < 2; attempt++) { // retry once if the result is a repeat
       const q = await fetchQuestion(state.config.spice);
       if (S.state !== state) return;
-      if (!setNextQuestion(state, q)) { store.set('mafia-host-' + state.code, JSON.stringify(state)); return; }
+      if (!setNextQuestion(state, q)) { store.seal('mafia-host-' + state.code, state); return; }
     }
   } catch { /* offline, timeout or bad JSON: fallback list is used */ } finally { fetchState.busy = false; }
 }
@@ -270,6 +286,7 @@ function joinRoomAs(code, rawName) {
       S.mode = 'game';
       S.lostHost = false;
       S.view = v;
+      store.set('mafia-at', String(Date.now()));
       render();
     },
     onErr(msg) {
@@ -331,7 +348,7 @@ function render() {
   const key = screenKey();
   if (key !== cur.key) {
     S.sel = null;
-    const build = S.mode === 'game' && S.view ? BUILDERS[S.view.phase] : { home, connecting, error: errorScreen }[S.mode];
+    const build = S.mode === 'game' && S.view ? BUILDERS[S.view.phase] : { home, connecting, error: errorScreen, resume: resumeScreen }[S.mode];
     const { el, update } = build(S.view);
     el.classList.add('screen', 'enter');
     screen.replaceChildren(el);
@@ -723,19 +740,37 @@ function over(v) {
 
 /* ------------------------------ boot ------------------------------ */
 
+// Never resume silently: ask first, and "Start new" wipes the saved game.
+function askResume(room, go) {
+  S.mode = 'resume';
+  S.pending = { room, at: Number(store.get('mafia-at')) || 0, go };
+  render();
+}
+
+function resumeScreen() {
+  const { room, at, go } = S.pending;
+  const mins = Math.round((Date.now() - at) / 60000);
+  const ago = !at ? '' : mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : mins < 1440 ? `${Math.round(mins / 60)} h ago` : `${Math.round(mins / 1440)} d ago`;
+  const when = at ? `Saved ${new Date(at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} (${ago})` : 'Saved earlier';
+  return {
+    el: h('section', { class: 'center' }, h('div', { class: 'big-icon' }, '\u{1F570}\uFE0F'), h('h2', {}, 'Unfinished game'),
+      h('p', { class: 'muted' }, `Room ${room}`), h('p', { class: 'muted' }, when),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => { S.pending = null; go(); } }, 'Resume game'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { S.pending = null; goHome(); } }, 'Start new')),
+    update() {},
+  };
+}
+
 function boot() {
-  const room = normCode(new URLSearchParams(location.search).get('room'));
   const session = store.json('mafia-session');
+  // No ?room= (reopened from home screen / history): resume the saved game anyway.
+  const room = normCode(new URLSearchParams(location.search).get('room')) || normCode(session?.room);
   if (room && session && session.room === room && typeof session.token === 'string') {
-    const saved = store.json('mafia-host-' + room);
+    const saved = store.unseal('mafia-host-' + room);
     if (session.host && saved && saved.code === room && saved.players?.some((p) => p.isHost && p.token === session.token)) {
-      resumeHost(saved, session);
-      return;
+      return askResume(room, () => resumeHost(saved, session));
     }
-    if (!session.host) {
-      joinRoomAs(room, session.name);
-      return;
-    }
+    if (!session.host) return askResume(room, () => joinRoomAs(room, session.name));
   }
   render();
 }
