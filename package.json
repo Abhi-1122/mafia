@@ -1,23 +1,35 @@
 {
   "name": "mafia",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "description": "Phone-first Mafia party game, peer-to-peer over WebRTC with no game server",
+  "homepage": "https://mafia-psi-ten.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Abhi-1122/mafia.git"
+  },
+  "keywords": [
+    "mafia",
+    "werewolf",
+    "party-game",
+    "webrtc",
+    "p2p",
+    "vite"
+  ],
+  "type": "module",
   "scripts": {
     "test": "node src/game.test.js",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "type": "module",
-  "devDependencies": {
-    "vite": "^6.4.4"
-  },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "trystero": "^0.26.0"
-  }
+  },
+  "devDependencies": {
+    "vite": "^6.4.4"
+  },
+  "author": "Abhi-1122",
+  "license": "MIT"
 }

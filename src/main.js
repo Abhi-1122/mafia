@@ -528,7 +528,7 @@ function lobby(v) {
   const modeBtns = [[false, 'App'], [true, 'Narrator']].map(([val, label]) =>
     h('button', { class: 'seg', type: 'button', disabled: !isHost, onclick: () => doAct('config', { narrator: val }) }, label));
   const modeNote = h('p', { class: 'muted mode-note' });
-  cfgEl.prepend(h('div', { class: 'cfg-row' }, h('span', { class: 'cfg-ico' }, '\u{1F3AD}'), h('span', { class: 'cfg-name' }, 'Runs the game'),
+  cfgEl.prepend(h('div', { class: 'cfg-row' }, h('span', { class: 'cfg-ico' }, '\u{1F3AD}'), h('span', { class: 'cfg-name' }, 'Mode'),
     h('span', { class: 'segs' }, modeBtns)), modeNote);
   cfgEl.append(spiceRow);
   const el = h('section', { class: 'lobby' },
