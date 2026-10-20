@@ -794,7 +794,7 @@ function vote(v) {
           const r = roleOf[p.id];
           const to = voteOf[p.name];
           setText(row.querySelector('.pname'), p.name + (p.id === v.you.id ? ' (you)' : '') + (p.alive ? '' : ' †'));
-          setText(row.querySelector('.vto'), to ? '→ ' + to : '');
+          setText(row.querySelector('.vto'), to ? 'Voted → ' + to : '');
           row.classList.toggle('dead', !p.alive);
           row.classList.toggle('done', !!to);
           const t = row.querySelector('.rtag');
