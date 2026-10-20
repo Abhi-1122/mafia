@@ -722,7 +722,8 @@ function night(v) {
       if (fresh) {
         box.replaceChildren(h('p', { class: 'muted' }, 'Investigation result'), h('b', { class: 'big-name' }, last.name),
           h('p', { class: 'det-line ' + (last.isMafia ? 'yes' : 'no') }, last.isMafia ? 'is Mafia' : 'is not Mafia'),
-          !v.acked && h('button', { class: 'btn primary', type: 'button', onclick: () => doAct('ack') }, 'Got it'));
+          // spread, not `cond && el`: replaceChildren would print a literal "false"
+          ...(v.acked ? [] : [h('button', { class: 'btn primary', type: 'button', onclick: () => doAct('ack') }, 'Got it')]));
       }
       hist.hidden = !v.log.length;
       hist.replaceChildren(h('h3', {}, 'Case file'), ...v.log.map((e) => h('div', { class: 'hrow' }, h('span', { class: 'muted' }, 'Night ' + e.round),
