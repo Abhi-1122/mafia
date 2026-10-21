@@ -710,9 +710,11 @@ function night(v) {
   const parts = [];
   // Everyone knows tonight's question, so knowing it gives no one away. Roles see it but don't answer.
   const qtext = h('p', { class: 'qtext' });
-  const qline = h('div', { class: 'card qline' }, h('p', { class: 'muted' }, "Tonight's question"), qtext);
+  const qlabel = h('p', { class: 'muted' });
+  const qline = h('div', { class: 'card qline' }, qlabel, qtext);
   ups.push((v) => {
     setText(qtext, v.question || '');
+    setText(qlabel, mode === 'act' ? "Tonight's question for everyone else (you don't answer it)" : "Tonight's question");
     qline.hidden = !v.question || (mode === 'act' && !v.action); // answerers already have it as their prompt
   });
 
@@ -725,7 +727,7 @@ function night(v) {
     const lock = h('button', { class: 'btn primary lockbtn', type: 'button', onclick: () => S.view.mySel && doAct('lock') }, 'Lock in');
     const prompt = h('h2', {});
     parts.push(h('div', { class: 'ttl' }, prompt, h('p', { class: 'muted' },
-      v.you.alive ? 'Choose one player.' : 'You are out, but the Gossip Column still wants your opinion.')), qline, grid.el, lock);
+      v.you.alive ? 'Choose one player.' : 'You are out, but the Gossip Column still wants your opinion.')), grid.el, lock);
     ups.push((v) => {
       setText(prompt, v.action ? NIGHT_PROMPT[v.action] : v.question);
       grid.update(v, v.mySel, true);
@@ -762,6 +764,8 @@ function night(v) {
     });
   }
   parts.push(cnt.el, ros.el);
+  // roles acting tonight get the question last, so it can't be mistaken for their own prompt
+  if (mode === 'act') parts.push(qline);
   return { el: h('section', { class: 'night' }, parts), update: (v) => ups.forEach((f) => f(v)) };
 }
 
