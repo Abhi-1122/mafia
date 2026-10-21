@@ -55,6 +55,7 @@ export const createGame = (code) => ({
   lastEvent: null, detectiveLog: [], funLog: [], nextQuestion: null, usedQuestions: [], winner: null, winnerIds: [], seq: 0,
   firstKill: null, // token of this game's first night victim
   prevFirstKill: null, // ...and of the previous game's: they can't die first twice in a row
+  owed: {}, // device token -> how many special roles this player is owed across the room's games
 });
 
 const byId = (s, id) => s.players.find((p) => p.id === id);
@@ -172,21 +173,39 @@ export function startGame(state, rng = Math.random) {
   state.prevFirstKill = state.firstKill || null; // only the game just played counts
   state.firstKill = null;
   resetRun(state);
+  dealRoles(state, rng);
+  state.round = 1;
+  state.phase = 'roles';
+  return null;
+}
+
+// Fair dealing across a room's games. Each game every seat is "owed" k/n of a special role
+// (mafia, doctor, detective, jester) and pays back 1 when it gets one. Who gets the k special
+// roles is a weighted draw, weight e^(OWED_PULL * owed): players who keep landing civilian
+// become much likelier to get a role, but never certain, so nobody can deduce roles from
+// the history. Which special role each of them gets is then a plain shuffle.
+const OWED_PULL = 2.5; // tuned by simulation: higher = fairer but more predictable
+function dealRoles(state, rng) {
   const { mafia, doctor, detective, jester } = state.config;
-  const roles = [
+  const special = [
     ...Array(mafia).fill('mafia'), ...Array(doctor).fill('doctor'),
     ...Array(detective).fill('detective'), ...Array(jester).fill('jester'),
   ];
   const seats = inPlay(state);
-  while (roles.length < seats.length) roles.push('civilian');
-  for (let i = roles.length - 1; i > 0; i--) { // Fisher-Yates
-    const j = Math.floor(rng() * (i + 1));
-    [roles[i], roles[j]] = [roles[j], roles[i]];
+  const owed = (state.owed ||= {});
+  const pool = seats.map((p) => ({ p, w: Math.exp(OWED_PULL * (owed[p.token] || 0)) }));
+  const chosen = [];
+  while (chosen.length < special.length) { // weighted draw without replacement
+    let r = rng() * pool.reduce((t, x) => t + x.w, 0);
+    const i = pool.findIndex((x) => (r -= x.w) < 0);
+    chosen.push(pool.splice(i < 0 ? pool.length - 1 : i, 1)[0].p); // (i < 0 only from float rounding)
   }
-  seats.forEach((p, i) => { p.role = roles[i]; });
-  state.round = 1;
-  state.phase = 'roles';
-  return null;
+  for (let i = special.length - 1; i > 0; i--) { // Fisher-Yates: which special role goes to whom
+    const j = Math.floor(rng() * (i + 1));
+    [special[i], special[j]] = [special[j], special[i]];
+  }
+  seats.forEach((p) => { p.role = 'civilian'; owed[p.token] = (owed[p.token] || 0) + special.length / seats.length; });
+  chosen.forEach((p, i) => { p.role = special[i]; owed[p.token] -= 1; });
 }
 
 export function playAgain(state) {

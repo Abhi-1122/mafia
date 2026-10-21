@@ -378,3 +378,8 @@ and `npm run build` must succeed.
 - The previous game's first night victim can't be the first kill of the next game in the same
   room (`prevFirstKill`, a device token in the host's saved state). After the new game's first
   kill they are fair game; if they are the only possible target, the rule is waived.
+- Fair dealing: the host keeps `owed[token]` per room. Each game every seat is owed k/n
+  (k = special roles, n = seats) and pays back 1 when it gets a special role. Special roles go
+  to a weighted draw without replacement, weight e^(2.5 * owed), then a shuffle decides which
+  special role each gets. Simulated: shares converge to k/n and civilian streaks stay short,
+  while the outcome is still not predictable from the history.

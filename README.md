@@ -45,6 +45,7 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 - **Phone-first.** Built for a group sitting round a table, each on their own phone. Works on a laptop too.
 - **Serverless multiplayer.** Phones connect directly over WebRTC; the room creator's phone referees the game.
 - **Secret roles that stay secret.** Each phone only ever receives what its player is allowed to know. Roles hide themselves after a few seconds, and *Hold: role* shows yours only while pressed.
+- **Fair dealing.** Across games in the same room, everyone gets a special role about equally often, so nobody is stuck as a civilian game after game. It stays a random draw, so the history doesn't give roles away.
 - **Team nights.** Mafia, doctors and detectives see their teammates' picks live, change their minds, then lock in.
 - **Night questions.** Everyone else answers a funny question at night ("Who would adopt 12 cats?"), so every phone looks busy and nobody gives themselves away. Answers are revealed in the *Gossip Column* at the end.
 - **Ghosts stay in the game.** Dead players answer the night questions and, during the vote, see every role and every vote as it lands.
@@ -93,6 +94,8 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 | 🏙️ Town | No mafia left in play |
 | 🔪 Mafia | Mafia equal or outnumber everyone else |
 | 🃏 Jester | The jester is voted out (being killed at night does not count) |
+
+**Dealing:** each game, special roles go out by a weighted random draw that favours players who have had fewer of them in this room; which special role they get is a plain shuffle.
 
 **Setup limits:** 3 to 20 players, at least one mafia, fewer mafia than everyone else, and no more special roles than players. Names are up to 16 characters.
 

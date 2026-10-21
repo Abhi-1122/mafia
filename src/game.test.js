@@ -910,4 +910,29 @@ function toVote(roles, config) {
   assert.ok(viewFor(s, 'p1').targets.includes('p2'));
 }
 
+// ---- fair dealing: over many games everyone gets a special role about equally often
+{
+  const mulberry = (a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let x = Math.imul(a ^ (a >>> 15), 1 | a); x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x; return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  const rng = mulberry(42);
+  const s = createGame('FAIR');
+  for (let i = 0; i < 6; i++) addPlayer(s, { name: 'P' + i, token: 't' + i, isHost: !i });
+  applyAction(s, 'p1', { kind: 'config', target: { mafia: 1, doctor: 1, detective: 0 } });
+  const got = Array(6).fill(0), run = Array(6).fill(0);
+  let longest = 0;
+  const G = 300;
+  for (let g = 0; g < G; g++) {
+    assert.equal(startGame(s, rng), null);
+    assert.equal(s.players.filter((p) => p.role !== 'civilian').length, 2);
+    s.players.forEach((p, i) => {
+      run[i] = p.role === 'civilian' ? run[i] + 1 : 0;
+      if (p.role !== 'civilian') got[i]++;
+      longest = Math.max(longest, run[i]);
+    });
+    applyAction(s, 'p1', { kind: 'newgame' });
+  }
+  for (const n of got) assert.ok(Math.abs(n / G - 1 / 3) < 0.03, 'share ' + n / G);
+  assert.ok(longest <= 8, 'longest civilian run ' + longest); // plain random dealing hits 15+ here
+  assert.ok(Object.keys(s.owed).every((k) => k.startsWith('t'))); // keyed by device token
+}
+
 console.log('game.test.js: all checks passed');
