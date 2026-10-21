@@ -47,7 +47,7 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 - **Secret roles that stay secret.** Each phone only ever receives what its player is allowed to know. Roles hide themselves after a few seconds, and *Hold: role* shows yours only while pressed.
 - **Fair dealing.** Across games in the same room, everyone gets a special role about equally often, so nobody is stuck as a civilian game after game. It stays a random draw, so the history doesn't give roles away.
 - **Team nights.** Mafia, doctors and detectives see their teammates' picks live, change their minds, then lock in.
-- **Night questions.** Everyone else answers a funny question at night ("Who would adopt 12 cats?"), so every phone looks busy and nobody gives themselves away. Answers are revealed in the *Gossip Column* at the end.
+- **Night questions.** Everyone without a night action answers a funny question ("Who would adopt 12 cats?"), naming anyone at the table, themselves included. Every phone is busy and every phone shows the question (roles see it at the bottom of their screen), so nobody gives themselves away. Answers are revealed in the *Gossip Column* at the end.
 - **Ghosts stay in the game.** Dead players answer the night questions and, during the vote, see every role and every vote as it lands.
 - **Narrator mode.** Prefer a human narrator? The app deals the roles and gives the narrator a private ledger to track deaths and the winner.
 - **Built for real rooms.** Phones that sleep or reload reconnect to their seat, the host can resume an interrupted game, AFK players can be kicked, and a banner warns when phones are on different versions.
