@@ -53,8 +53,8 @@ export const createGame = (code) => ({
   config: { ...DEFAULT_CONFIG },
   players: [], ready: {}, night: freshNight(), saveStreak: null, votes: {},
   lastEvent: null, detectiveLog: [], funLog: [], nextQuestion: null, usedQuestions: [], winner: null, winnerIds: [], seq: 0,
-  firstKill: null, // token of this game's first night victim
-  prevFirstKill: null, // ...and of the previous game's: they can't die first twice in a row
+  firstKill: null, // token of this game's night-1 victim
+  prevFirstKill: null, // ...and of the previous game's: they can't be the night-1 kill twice in a row
   owed: {}, // device token -> how many special roles this player is owed across the room's games
 });
 
@@ -296,7 +296,7 @@ function resolveNight(state) {
   const t = target && byId(state, target);
   const victim = t && t.alive && doctor !== target ? t : null;
   if (victim) victim.alive = false;
-  if (victim && !state.firstKill) state.firstKill = victim.token; // token, not id: survives leaving and rejoining
+  if (victim && state.round === 1) state.firstKill = victim.token; // token, not id: survives leaving and rejoining
   state.lastEvent = { type: 'night', killedId: victim ? victim.id : null };
   const ss = state.saveStreak;
   state.saveStreak = !doctor ? null : { targetId: doctor, count: ss && ss.targetId === doctor ? ss.count + 1 : 1 };
@@ -357,9 +357,9 @@ export function advance(state, rng = Math.random) {
 
 /* ---------- actions ---------- */
 
-// Until this game's first night kill, the mafia can't pick the previous game's first victim.
-// If that would leave nobody, the rule is waived.
-export const firstKillBlocked = (state) => (state.firstKill || !state.prevFirstKill ? []
+// On night 1 only, the mafia can't pick the previous game's night-1 victim. From night 2 they
+// are fair game. If blocking them would leave the mafia no target, the rule is waived.
+export const firstKillBlocked = (state) => (state.round !== 1 || !state.prevFirstKill ? []
   : alive(state).filter((p) => p.token === state.prevFirstKill).map((p) => p.id));
 
 // The doctors' previous target is blocked once they saved the same player 2 nights running.

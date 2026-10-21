@@ -871,7 +871,7 @@ function toVote(roles, config) {
   assert.equal(s.lastEvent.killedId, null);
 }
 
-// ---- nobody is the first kill of two consecutive games
+// ---- nobody is the night-1 kill of two consecutive games
 {
   const s = setup(['mafia', 'civilian', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 1, doctor: 0, detective: 0 });
   allReady(s);
@@ -893,7 +893,7 @@ function toVote(roles, config) {
   advance(s);
   ['p1', 'p2', 'p3', 'p5', 'p6'].forEach((p) => act(s, +p.slice(1), 'vote', 'skip'));
   advance(s);
-  assert.ok(viewFor(s, 'p1').targets.includes('p3')); // after the first kill, anyone goes
+  assert.ok(viewFor(s, 'p1').targets.includes('p3')); // night 2: anyone goes
   nextGame(); // game 3: only game 2's first victim is protected, game 1's is fair game again
   assert.deepEqual(viewFor(s, 'p1').blocked, ['p4']);
   assert.ok(viewFor(s, 'p1').targets.includes('p3'));
@@ -933,6 +933,24 @@ function toVote(roles, config) {
   for (const n of got) assert.ok(Math.abs(n / G - 1 / 3) < 0.03, 'share ' + n / G);
   assert.ok(longest <= 8, 'longest civilian run ' + longest); // plain random dealing hits 15+ here
   assert.ok(Object.keys(s.owed).every((k) => k.startsWith('t'))); // keyed by device token
+}
+
+{
+  // the block is night 1 only, even if night 1 had no kill; a night-2 kill doesn't count as 'first'
+  const s = setup(['mafia', 'doctor', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 1, doctor: 1, detective: 0 });
+  s.prevFirstKill = 't4';
+  allReady(s);
+  assert.deepEqual(viewFor(s, 'p1').blocked, ['p4']);
+  nightAll(s, { p1: 'p3', p2: 'p3' }); // doctor saves: no kill on night 1
+  assert.equal(s.lastEvent.killedId, null);
+  advance(s);
+  ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'].forEach((p) => act(s, +p.slice(1), 'vote', 'skip'));
+  advance(s);
+  assert.deepEqual(viewFor(s, 'p1').blocked, []); // night 2: p4 is fair game
+  assert.ok(viewFor(s, 'p1').targets.includes('p4'));
+  nightAll(s, { p1: 'p4', p2: 'p5' });
+  assert.equal(s.lastEvent.killedId, 'p4');
+  assert.equal(s.firstKill, null); // a night-2 kill isn't a night-1 kill
 }
 
 console.log('game.test.js: all checks passed');

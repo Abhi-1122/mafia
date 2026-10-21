@@ -81,7 +81,7 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 **Night**
 - Each team (mafia, doctors, detectives) makes **one** choice. Members see each other's picks live and can change them until they lock in. Once every living member has locked, the most-picked player is chosen, and ties are broken at random.
 - The mafia's target dies unless the doctors chose the same player. Deaths never reveal a role.
-- Nobody can be the first kill of two games in a row: the previous game's first victim is off-limits until the new game's first kill (unless that would leave the mafia no target).
+- Nobody can be the night-1 kill of two games in a row: the previous game's night-1 victim is off-limits to the mafia on night 1 only (unless that would leave the mafia no target), and fair game from night 2.
 - Detectives see their result as soon as their team has locked in, and the night waits until each detective taps **Got it**.
 
 **Day**
