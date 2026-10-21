@@ -341,7 +341,8 @@ export function nightTargets(state, me) {
   const a = alive(state);
   if (asksQuestion(me)) return state.players.filter((p) => p.role); // decoy question: anyone at the table, yourself included
   if (me.role === 'mafia') return a; // mafia may hit a teammate, or themselves
-  if (me.role === 'doctor') return a.filter((p) => p.id !== blockedTarget(state));
+  // doctors can't save themselves on the first night; from night 2 they can
+  if (me.role === 'doctor') return a.filter((p) => p.id !== blockedTarget(state) && !(state.round === 1 && p.id === me.id));
   return a.filter((p) => p.role !== 'detective');
 }
 

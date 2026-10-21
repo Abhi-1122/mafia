@@ -111,11 +111,11 @@ function toNextNight(s) {
   assert.equal(sel(s, 3, 'p1'), null);
 }
 
-// ---- night kill / save, detective team, doctor self-save
+// ---- night kill / save, detective team
 {
   const s = setup(['mafia', 'doctor', 'detective', 'civilian', 'civilian']);
   allReady(s);
-  nightAll(s, { p1: 'p4', p2: 'p2', p3: 'p1' }); // doctor saves self, kill goes through on p4
+  nightAll(s, { p1: 'p4', p2: 'p5', p3: 'p1' }); // doctor saves p5, kill goes through on p4
   assert.deepEqual(s.detectiveLog, [{ round: 1, targetId: 'p1', isMafia: true }]);
   assert.equal(s.phase, 'dawn');
   assert.equal(s.players[3].alive, false);
@@ -227,7 +227,7 @@ function toNextNight(s) {
   assert.equal(lock(s, 1), 'Select a target first');
   assert.equal(sel(s, 1, 'p2'), null); // mafia may target a teammate
   assert.equal(sel(s, 1, 'p2'), null); // (clear it again)
-  assert.equal(sel(s, 3, 'p3'), null); // doctor may pick self
+  assert.equal(sel(s, 3, 'p3'), 'Invalid target'); // no self-save on night 1
   assert.equal(s.night.locked.p1, undefined); // selecting never locks
   sel(s, 1, 'p4');
   assert.equal(lock(s, 1), null);
@@ -853,6 +853,22 @@ function toVote(roles, config) {
   assert.equal(s.phase, 'night'); // waits for p4 again
   nightAll(s);
   assert.equal(s.phase, 'dawn');
+}
+
+// ---- doctor self-save: not on night 1, allowed from night 2
+{
+  const s = setup(['mafia', 'doctor', 'civilian', 'civilian', 'civilian', 'civilian']);
+  allReady(s);
+  assert.ok(!viewFor(s, 'p2').targets.includes('p2'));
+  assert.equal(sel(s, 2, 'p2'), 'Invalid target');
+  nightAll(s, { p1: 'p3', p2: 'p4' });
+  advance(s);
+  ['p1', 'p2', 'p4', 'p5', 'p6'].forEach((p) => act(s, +p.slice(1), 'vote', 'skip'));
+  advance(s);
+  assert.equal(s.round, 2);
+  assert.ok(viewFor(s, 'p2').targets.includes('p2'));
+  nightAll(s, { p1: 'p2', p2: 'p2' }); // doctor saves self from the mafia
+  assert.equal(s.lastEvent.killedId, null);
 }
 
 console.log('game.test.js: all checks passed');

@@ -70,7 +70,7 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 | Role | Team | Each night |
 |---|---|---|
 | 🔪 **Mafia** | Mafia | Agree on one player to eliminate. Anyone alive is a valid target, a teammate or yourself included. |
-| ⚕️ **Doctor** | Town | Agree on one player to save. You may save yourself, but nobody can be saved more than two nights in a row. |
+| ⚕️ **Doctor** | Town | Agree on one player to save. You may save yourself from night 2 onwards (not on the first night), and nobody can be saved more than two nights in a row. |
 | 🔎 **Detective** | Town | Agree on one player to investigate and learn whether they are Mafia. The jester reads as *not Mafia*. |
 | 🃏 **Jester** | Alone | Answers the night question. Wins alone by getting voted out. |
 | 🏠 **Civilian** | Town | Answers the night question. Finds the mafia by talking. |

@@ -373,3 +373,5 @@ and `npm run build` must succeed.
 - Mafia can target anyone alive, including teammates and themselves. A mafia death
   is announced like any other death; if it kills the last mafia, the town wins.
 - In the vote phase, dead players see every vote live (`liveVotes`) but cannot vote.
+- Doctors cannot save themselves on night 1. From night 2 onwards self-saves are allowed
+  (the 2-nights-in-a-row limit still applies).
