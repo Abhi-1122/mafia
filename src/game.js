@@ -53,6 +53,8 @@ export const createGame = (code) => ({
   config: { ...DEFAULT_CONFIG },
   players: [], ready: {}, night: freshNight(), saveStreak: null, votes: {},
   lastEvent: null, detectiveLog: [], funLog: [], nextQuestion: null, usedQuestions: [], winner: null, winnerIds: [], seq: 0,
+  firstKill: null, // token of this game's first night victim
+  prevFirstKill: null, // ...and of the previous game's: they can't die first twice in a row
 });
 
 const byId = (s, id) => s.players.find((p) => p.id === id);
@@ -167,6 +169,8 @@ export function startGame(state, rng = Math.random) {
   if (state.phase !== 'lobby') return 'Game already started';
   const err = validateStart(state);
   if (err) return err;
+  state.prevFirstKill = state.firstKill || null; // only the game just played counts
+  state.firstKill = null;
   resetRun(state);
   const { mafia, doctor, detective, jester } = state.config;
   const roles = [
@@ -273,6 +277,7 @@ function resolveNight(state) {
   const t = target && byId(state, target);
   const victim = t && t.alive && doctor !== target ? t : null;
   if (victim) victim.alive = false;
+  if (victim && !state.firstKill) state.firstKill = victim.token; // token, not id: survives leaving and rejoining
   state.lastEvent = { type: 'night', killedId: victim ? victim.id : null };
   const ss = state.saveStreak;
   state.saveStreak = !doctor ? null : { targetId: doctor, count: ss && ss.targetId === doctor ? ss.count + 1 : 1 };
@@ -333,6 +338,11 @@ export function advance(state, rng = Math.random) {
 
 /* ---------- actions ---------- */
 
+// Until this game's first night kill, the mafia can't pick the previous game's first victim.
+// If that would leave nobody, the rule is waived.
+export const firstKillBlocked = (state) => (state.firstKill || !state.prevFirstKill ? []
+  : alive(state).filter((p) => p.token === state.prevFirstKill).map((p) => p.id));
+
 // The doctors' previous target is blocked once they saved the same player 2 nights running.
 export const blockedTarget = (state) =>
   state.saveStreak && state.saveStreak.count >= 2 ? state.saveStreak.targetId : null;
@@ -340,7 +350,11 @@ export const blockedTarget = (state) =>
 export function nightTargets(state, me) {
   const a = alive(state);
   if (asksQuestion(me)) return state.players.filter((p) => p.role); // decoy question: anyone at the table, yourself included
-  if (me.role === 'mafia') return a; // mafia may hit a teammate, or themselves
+  if (me.role === 'mafia') { // mafia may hit a teammate, or themselves
+    const out = firstKillBlocked(state);
+    const ok = a.filter((p) => !out.includes(p.id));
+    return ok.some((p) => p.role !== 'mafia') ? ok : a; // never force the mafia onto their own
+  }
   // doctors can't save themselves on the first night; from night 2 they can
   if (me.role === 'doctor') return a.filter((p) => p.id !== blockedTarget(state) && !(state.round === 1 && p.id === me.id));
   return a.filter((p) => p.role !== 'detective');
@@ -484,6 +498,7 @@ export function viewFor(state, id) {
             .map((p) => ({ id: p.id, name: p.name, targetId: n.selections[p.id], locked: !!n.locked[p.id] }));
           v.choice = n.choice[me.role] || null;
           if (me.role === 'doctor') v.blocked = blockedTarget(state);
+          if (me.role === 'mafia') v.blocked = firstKillBlocked(state).filter((id) => !v.targets.includes(id));
           if (me.role === 'detective') v.acked = !!n.acked?.[me.id];
         }
         // everyone sees the question (so knowing it gives no one away); only askers answer it

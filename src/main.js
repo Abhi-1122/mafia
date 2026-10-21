@@ -433,7 +433,8 @@ function targetGrid({ withSkip = false, onPick, chipsOf }) {
     el: grid,
     update(v, selId, enabled) {
       // v.targets = eligible ids; v.blocked = doctor-only greyed out player (kept in player order)
-      const items = v.players.filter((p) => v.targets.includes(p.id) || p.id === v.blocked);
+      const blockedIds = [].concat(v.blocked ?? []); // shown greyed out with a reason
+      const items = v.players.filter((p) => v.targets.includes(p.id) || blockedIds.includes(p.id));
       if (withSkip) items.push({ id: 'skip', name: 'Skip (no one)', skip: true, connected: true });
       sync(grid, items, (p) => p.id,
         (p) => h('button', { class: 'target' + (p.skip ? ' skip' : '') + (['♥', '♦'].includes(suitOf(p.id)) ? ' red' : ''), type: 'button', onclick: () => onPick(p.id) },
@@ -441,7 +442,8 @@ function targetGrid({ withSkip = false, onPick, chipsOf }) {
           p.skip ? h('span', { class: 'avatar sk' }, '\u2715') : avatar(p.name, p.id),
           h('span', { class: 'tname' }), h('span', { class: 'badge off' }, 'offline'), h('span', { class: 'note' }, 'Saved 2 nights in a row'), h('span', { class: 'chips' })),
         (el, p) => {
-          const blocked = p.id === v.blocked;
+          const blocked = blockedIds.includes(p.id);
+          setText(el.querySelector('.note'), v.action === 'mafia' ? 'Died first last game' : 'Saved 2 nights in a row');
           setText(el.querySelector('.tname'), p.name);
           // long names (up to 16 chars) get the full tile width and a smaller font instead of "…"
           const len = p.skip ? 0 : [...p.name].length;

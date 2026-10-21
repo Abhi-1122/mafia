@@ -375,3 +375,6 @@ and `npm run build` must succeed.
 - In the vote phase, dead players see every vote live (`liveVotes`) but cannot vote.
 - Doctors cannot save themselves on night 1. From night 2 onwards self-saves are allowed
   (the 2-nights-in-a-row limit still applies).
+- The previous game's first night victim can't be the first kill of the next game in the same
+  room (`prevFirstKill`, a device token in the host's saved state). After the new game's first
+  kill they are fair game; if they are the only possible target, the rule is waived.

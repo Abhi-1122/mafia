@@ -871,4 +871,43 @@ function toVote(roles, config) {
   assert.equal(s.lastEvent.killedId, null);
 }
 
+// ---- nobody is the first kill of two consecutive games
+{
+  const s = setup(['mafia', 'civilian', 'civilian', 'civilian', 'civilian', 'civilian'], { mafia: 1, doctor: 0, detective: 0 });
+  allReady(s);
+  assert.deepEqual(viewFor(s, 'p1').blocked, []);
+  nightAll(s, { p1: 'p3' }); // game 1: p3 dies first
+  assert.equal(s.lastEvent.killedId, 'p3');
+  const nextGame = () => {
+    assert.equal(applyAction(s, 'p1', { kind: 'newgame' }), null);
+    assert.equal(startGame(s, () => 0.5), null);
+    s.players.forEach((p, i) => { p.role = i === 0 ? 'mafia' : 'civilian'; });
+    allReady(s);
+  };
+  nextGame(); // game 2
+  assert.ok(!viewFor(s, 'p1').targets.includes('p3'));
+  assert.deepEqual(viewFor(s, 'p1').blocked, ['p3']); // shown greyed out to the mafia
+  assert.equal(sel(s, 1, 'p3'), 'Invalid target');
+  assert.equal(viewFor(s, 'p2').blocked, undefined); // civilians see nothing about it
+  nightAll(s, { p1: 'p4' }); // game 2: p4 dies first
+  advance(s);
+  ['p1', 'p2', 'p3', 'p5', 'p6'].forEach((p) => act(s, +p.slice(1), 'vote', 'skip'));
+  advance(s);
+  assert.ok(viewFor(s, 'p1').targets.includes('p3')); // after the first kill, anyone goes
+  nextGame(); // game 3: only game 2's first victim is protected, game 1's is fair game again
+  assert.deepEqual(viewFor(s, 'p1').blocked, ['p4']);
+  assert.ok(viewFor(s, 'p1').targets.includes('p3'));
+  nextGame(); // game 4 after a game with no kill at all: nobody is protected
+  assert.deepEqual(viewFor(s, 'p1').blocked, []);
+}
+{
+  // the rule is waived rather than leaving the mafia no target
+  const s = setup(['mafia', 'civilian', 'civilian'], { mafia: 1, doctor: 0, detective: 0 });
+  s.prevFirstKill = 't2';
+  s.players[2].alive = false; // only p2 left to kill
+  allReady(s);
+  assert.deepEqual(viewFor(s, 'p1').blocked, []);
+  assert.ok(viewFor(s, 'p1').targets.includes('p2'));
+}
+
 console.log('game.test.js: all checks passed');
