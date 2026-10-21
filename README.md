@@ -85,7 +85,7 @@ No app to install, no accounts, no game server. Open the site, share a four-lett
 - Detectives see their result as soon as their team has locked in, and the night waits until each detective taps **Got it**.
 
 **Day**
-- Every living player votes for another player or **Skip**. Votes are final once locked.
+- Every living player votes for any living player, themselves included, or **Skip**. Votes are final once locked.
 - A player is voted out only with a clear plurality that also beats the Skip count. A tie or a Skip majority eliminates nobody.
 
 **Winning**

@@ -460,7 +460,7 @@ export function applyAction(state, playerId, action, rng = Math.random) {
       if (state.votes[me.id]) return 'Already voted';
       if (target !== 'skip') {
         const t = typeof target === 'string' ? byId(state, target) : null;
-        if (!t || !t.alive || t.id === me.id) return 'Invalid target';
+        if (!t || !t.alive) return 'Invalid target'; // voting for yourself is allowed
       }
       state.votes[me.id] = target;
       break;
@@ -541,7 +541,7 @@ export function viewFor(state, id) {
       v.count = { done: w.filter((p) => state.votes[p.id]).length, total: w.length };
       v.locked = !!state.votes[me.id];
       v.myVote = state.votes[me.id] || null;
-      v.targets = me.alive ? a.filter((p) => p.id !== me.id).map((p) => p.id) : [];
+      v.targets = me.alive ? a.map((p) => p.id) : []; // yourself included
       // the dead can't vote, but they get to watch who is voting for whom, live
       if (!me.alive) {
         v.liveVotes = Object.entries(state.votes).map(([from, t]) => ({ from: name(from), to: t === 'skip' ? null : name(t) }));

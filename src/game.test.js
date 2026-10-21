@@ -125,8 +125,10 @@ function toNextNight(s) {
   assert.equal(advance(s), true);
   assert.equal(s.phase, 'vote');
   assert.equal(act(s, 4, 'vote', 'p1'), 'You are dead');
-  assert.equal(act(s, 1, 'vote', 'p1'), 'Invalid target'); // self
   assert.equal(act(s, 1, 'vote', 'p4'), 'Invalid target'); // dead
+  assert.ok(viewFor(s, 'p1').targets.includes('p1')); // you can vote for yourself
+  assert.equal(act(s, 1, 'vote', 'p1'), null);
+  assert.equal(s.votes.p1, 'p1');
 }
 {
   // save works: doctor protects the victim; nobody dies
@@ -665,7 +667,7 @@ function toVote(roles, config) {
   checkNoLeak('dawn');
   advance(s);
   const vv = viewFor(s, 'p5');
-  assert.deepEqual(vv.targets.sort(), ['p1', 'p2', 'p3', 'p6']); // alive others, not self/dead
+  assert.deepEqual(vv.targets.sort(), ['p1', 'p2', 'p3', 'p5', 'p6']); // everyone alive, self included, not the dead
   checkNoLeak('vote');
   assert.deepEqual(viewFor(s, 'p4').targets, []); // dead jester
   s.players.filter((p) => p.alive).forEach((p) => act(s, num(p), 'vote', p.id === 'p1' ? 'p2' : 'p1'));

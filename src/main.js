@@ -444,9 +444,10 @@ function targetGrid({ withSkip = false, onPick, chipsOf }) {
         (el, p) => {
           const blocked = blockedIds.includes(p.id);
           setText(el.querySelector('.note'), v.action === 'mafia' ? 'Died first last game' : 'Saved 2 nights in a row');
-          setText(el.querySelector('.tname'), p.name);
+          const label = p.name + (p.id === v.you.id ? ' (you)' : ''); // you can pick yourself in some places
+          setText(el.querySelector('.tname'), label);
           // long names (up to 16 chars) get the full tile width and a smaller font instead of "…"
-          const len = p.skip ? 0 : [...p.name].length;
+          const len = p.skip ? 0 : [...label].length;
           el.classList.toggle('long', len > 8);
           el.classList.toggle('xlong', len > 12);
           el.querySelector('.badge').hidden = p.connected;

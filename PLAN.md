@@ -218,7 +218,7 @@ once, generically, keyed by role. Each team makes **one** choice per night.
 
 ### Vote (discuss & vote)
 
-- Alive players see every alive player **except themselves**, plus "Skip". They
+- Alive players see every alive player (themselves included, see later changes), plus "Skip". They
   select one and confirm with "Lock vote". Locked votes are final.
 - Everyone sees `k / m voted` and who has voted so far (names only, not targets).
 - Dead players see a read-only spectator screen.
@@ -383,3 +383,4 @@ and `npm run build` must succeed.
   to a weighted draw without replacement, weight e^(2.5 * owed), then a shuffle decides which
   special role each gets. Simulated: shares converge to k/n and civilian streaks stay short,
   while the outcome is still not predictable from the history.
+- Day vote: players may vote for themselves.
